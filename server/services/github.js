@@ -47,15 +47,14 @@ const mapVerdictToEvent = (verdict) => {
   }
 };
 
-export const postPRReview = async (prUrl, token, reviewData) => {
+export const postPRReview = async (prUrl, token, reviewData, event) => {
   const { owner, repo, prNumber } = parsePRUrl(prUrl);
-  const { meta, recommendation } = reviewData;
 
   const body = generateReviewBody(reviewData);
 
   const res = await axios.post(
     `${GITHUB_BASE_URL}/repos/${owner}/${repo}/pulls/${prNumber}/reviews`,
-    { body, event: mapVerdictToEvent(recommendation.verdict) },
+    { body, event: event || 'COMMENT' },
     { headers: GITHUB_HEADERS(token) }
   );
   return res.data;

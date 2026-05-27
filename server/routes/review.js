@@ -64,24 +64,23 @@ router.post('/review/preview', async (req, res) => {
 
 /**
  * POST /api/review/post
- * Body: { prUrl, token, review }
- * Posts review as a GitHub PR review comment
+ * Body: { prUrl, token, review, event? }
+ * Posts review as a GitHub PR review comment. Default event: COMMENT
  */
 router.post('/review/post', async (req, res) => {
-  const { prUrl, token, review } = req.body;
+  const { prUrl, token, review, event } = req.body;
 
   if (!prUrl) return res.status(400).json({ error: 'prUrl is required' });
   if (!token) return res.status(400).json({ error: 'GitHub token is required' });
   if (!review) return res.status(400).json({ error: 'review data is required' });
 
   try {
-    const result = await postPRReview(prUrl, token, review);
+    const result = await postPRReview(prUrl, token, review, event);
     res.json({ id: result.id, html_url: result.html_url, message: 'Review posted successfully' });
   } catch (err) {
-    console.log(JSON.stringify(err?.data || err?.response?.data || err, null, 2));
     const status = err.response?.status || 500;
-    const data = err?.data || err?.response?.data;
-    const msg = data?.errors?.join(', ') || data?.message || err.message || 'Unknown error';
+    const data = err.response?.data;
+    const msg = data?.errors?.[0]?.message || data?.message || err.message;
     res.status(status).json({ error: msg });
   }
 });

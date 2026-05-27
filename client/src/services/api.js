@@ -30,6 +30,17 @@ export async function postReviewToPR(prUrl, token, review) {
   return data;
 }
 
+export async function approvePR(prUrl, token, review) {
+  const res = await fetch(`${API_BASE}/review/post`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prUrl, token, review, event: 'APPROVE' }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new ApiError(data.error || 'Failed to approve PR', res.status);
+  return data;
+}
+
 export async function mergePR(prUrl, token, mergeMethod) {
   const res = await fetch(`${API_BASE}/review/merge`, {
     method: 'POST',

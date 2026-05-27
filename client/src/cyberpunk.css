@@ -255,21 +255,39 @@ input::placeholder {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.btn-post {
-  background: linear-gradient(135deg, var(--neon-green), var(--neon-blue));
+.btn-comment {
+  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
 }
 
-.btn-post:hover {
-  box-shadow: 0 8px 30px rgba(0, 255, 163, 0.4);
+.btn-comment:hover {
+  box-shadow: 0 8px 30px rgba(5, 217, 232, 0.4);
 }
 
-.btn-post:disabled {
+.btn-comment:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
 }
 
-.btn-post:disabled:hover {
+.btn-comment:disabled:hover {
+  box-shadow: none;
+}
+
+.btn-approve {
+  background: linear-gradient(135deg, var(--neon-green), var(--neon-blue));
+}
+
+.btn-approve:hover {
+  box-shadow: 0 8px 30px rgba(0, 255, 163, 0.4);
+}
+
+.btn-approve:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-approve:disabled:hover {
   box-shadow: none;
 }
 

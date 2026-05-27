@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { reviewPR, postReviewToPR, mergePR, ApiError } from './services/api.js';
+import { reviewPR, postReviewToPR, approvePR, mergePR, ApiError } from './services/api.js';
 import './cyberpunk.css';
 
 const TOKEN_KEY = 'PRISMLENS_TOKEN';
@@ -53,6 +53,9 @@ export default function App() {
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState(null);
   const [postSuccess, setPostSuccess] = useState(null);
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState(null);
+  const [approveSuccess, setApproveSuccess] = useState(null);
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState(null);
   const [mergeSuccess, setMergeSuccess] = useState(null);
@@ -74,6 +77,21 @@ export default function App() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!prUrl.trim() || !token.trim() || !result) return;
+    setApproving(true);
+    setApproveError(null);
+    setApproveSuccess(null);
+    try {
+      const data = await approvePR(prUrl.trim(), token.trim(), result);
+      setApproveSuccess(data.html_url || 'Approved');
+    } catch (err) {
+      setApproveError(err.message);
+    } finally {
+      setApproving(false);
     }
   };
 
@@ -112,6 +130,8 @@ export default function App() {
     setError(null);
     setPostSuccess(null);
     setPostError(null);
+    setApproveSuccess(null);
+    setApproveError(null);
     setMergeSuccess(null);
     setMergeError(null);
     setLoading(false);
@@ -259,20 +279,31 @@ export default function App() {
 
             <div className="post-section">
               <div className="btn-group">
-                <button className="btn btn-post" onClick={handlePostToPR} disabled={posting}>
-                  {posting ? 'Posting...' : 'Post to PR'}
+                <button className="btn btn-comment" onClick={handlePostToPR} disabled={posting}>
+                  {posting ? 'Posting...' : 'Comment'}
                 </button>
                 {rec?.verdict === 'APPROVE' && (
-                  <button className="btn btn-merge" onClick={handleMerge} disabled={merging}>
-                    {merging ? 'Merging...' : 'Merge PR'}
+                  <button className="btn btn-approve" onClick={handleApprove} disabled={approving}>
+                    {approving ? 'Approving...' : 'Approve'}
                   </button>
                 )}
-                <button className="btn btn-secondary" onClick={handleReset}>Review Another PR</button>
+                {rec?.verdict === 'APPROVE' && (
+                  <button className="btn btn-merge" onClick={handleMerge} disabled={merging}>
+                    {merging ? 'Merging...' : 'Merge'}
+                  </button>
+                )}
+                <button className="btn btn-secondary" onClick={handleReset}>New Review</button>
               </div>
               {postError && <p className="post-error">{esc(postError)}</p>}
               {postSuccess && (
                 <p className="post-success">
-                  Review posted. <a href={postSuccess} target="_blank" rel="noreferrer">View on GitHub</a>
+                  Comment posted. <a href={postSuccess} target="_blank" rel="noreferrer">View on GitHub</a>
+                </p>
+              )}
+              {approveError && <p className="post-error">{esc(approveError)}</p>}
+              {approveSuccess && (
+                <p className="post-success">
+                  Approved. <a href={approveSuccess} target="_blank" rel="noreferrer">View on GitHub</a>
                 </p>
               )}
               {mergeError && <p className="post-error">{esc(mergeError)}</p>}
