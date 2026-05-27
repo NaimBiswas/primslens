@@ -318,19 +318,27 @@ export default function App() {
   );
 }
 
+function sevClass(severity) {
+  return SEVERITY_CLASSES[severity] || '';
+}
+
 function CategorySection({ icon, title, items }) {
   return (
     <>
-      <div className="section-title category-title">{icon} {title} ({items.length})</div>
+      <div className="section-title category-title">{icon} {title} <span className="cat-section-count">{items.length}</span></div>
       {items.map((item, i) => (
-        <div className={`review-item ${item.type === 'BUG' ? 'bug' : item.type === 'CONCERN' ? 'concern' : item.type === 'STRENGTH' ? 'strength' : 'info'}`} key={i}>
+        <div className={`review-item sev-${item.severity || 'low'}`} key={i}>
           <div className="review-header">
-            <span className="review-title">{esc(item.issue)}</span>
+            <div className="review-left">
+              <span className={`sev-dot ${sevClass(item.severity)}`} />
+              <span className="review-title">{esc(item.issue)}</span>
+            </div>
             <div className="review-meta">
-              <span className={`sev-badge ${SEVERITY_CLASSES[item.severity] || ''}`}>{item.severity}</span>
+              <span className={`sev-badge ${sevClass(item.severity)}`}>{item.severity}</span>
               <span className="type-badge">{TYPE_LABELS[item.type] || item.type}</span>
             </div>
           </div>
+          {item.file && <div className="review-file">{esc(item.file)}</div>}
           {item.recommendation && (
             <div className="review-recommendation">{esc(item.recommendation)}</div>
           )}

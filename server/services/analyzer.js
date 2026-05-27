@@ -452,7 +452,7 @@ const analyzeFile = (file) => {
   const added = getAddedLines(file);
   if (!added.length) return [];
 
-  return [
+  const findings = [
     ...checkPerformance(file, added),
     ...checkSecurity(file, added),
     ...checkReadability(file, added),
@@ -460,6 +460,7 @@ const analyzeFile = (file) => {
     ...checkScalability(file, added),
     ...checkBestPractices(file, added),
   ];
+  return findings.map((f) => ({ ...f, file: file.filename }));
 };
 
 export const analyzePR = (prData, files) => {
