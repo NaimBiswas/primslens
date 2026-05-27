@@ -2,7 +2,7 @@
 
 ## Overview
 
-The client (browser UI) communicates with the server via REST API endpoints. All API paths are prefixed with `/api/`.
+The client communicates with the server via REST API. All paths are prefixed with `/api/`.
 
 **Base URL:** `http://localhost:3000/api`
 
@@ -10,7 +10,7 @@ The client (browser UI) communicates with the server via REST API endpoints. All
 
 ## Authentication
 
-The GitHub token is passed in the request body (not headers). The server uses it to authenticate with the GitHub API.
+GitHub token is passed in the request body. The server uses it to authenticate with the GitHub API.
 
 ```json
 {
@@ -19,69 +19,65 @@ The GitHub token is passed in the request body (not headers). The server uses it
 }
 ```
 
-## Endpoints
-
 ---
 
-### `POST /api/review`
+## `POST /api/review`
 
-Full PR review analysis. This is the primary endpoint used by the client.
+Full PR review analysis — evaluates every changed file across 6 dimensions.
 
-#### Request
+### Request
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `prUrl` | string | ✅ | Full GitHub PR URL |
-| `token` | string | ✅ | GitHub personal access token (repo scope) |
+| `prUrl` | string | Yes | Full GitHub PR URL |
+| `token` | string | Yes | GitHub personal access token (repo scope) |
 
-**Example:**
 ```bash
 curl -X POST http://localhost:3000/api/review \
   -H "Content-Type: application/json" \
-  -d '{
-    "prUrl": "https://github.com/Laststop-live/Bintech.ndc/pull/17",
-    "token": "ghp_xxxxxx"
-  }'
+  -d '{"prUrl": "https://github.com/user/repo/pull/17", "token": "ghp_xxxxxx"}'
 ```
 
-#### Response
+### Response
 
 ```json
 {
   "meta": {
-    "prTitle": "Feat(order Change): Updated OrderChange response for none case",
+    "prTitle": "Feat(order Change): ...",
     "prAuthor": "NaimBiswas",
-    "prUrl": "https://github.com/Laststop-live/Bintech.ndc/pull/17",
+    "prUrl": "https://github.com/...",
     "prNumber": 17,
-    "repo": "Laststop-live/Bintech.ndc",
+    "repo": "user/repo",
     "branch": "feature/order-change",
-    "stats": {
-      "additions": 245,
-      "deletions": 53,
-      "filesChanged": 6
-    }
+    "stats": { "additions": 245, "deletions": 53, "filesChanged": 6 }
   },
   "reviews": [
     {
-      "type": "STRENGTH",
+      "type": "CONCERN",
       "severity": "high",
-      "category": "Code Architecture",
-      "issue": "Data extraction/transform patterns in mappers",
-      "recommendation": "Keep separation of concerns..."
+      "category": "performance",
+      "issue": "Nested loop detected in file.js",
+      "recommendation": "Flatten loops or use a Map/Set for O(1) lookups"
     }
   ],
   "strengths": [],
   "concerns": [],
   "bugs": [],
   "info": [],
+  "performance": [],
+  "security": [],
+  "readability": [],
+  "bugs_cat": [],
+  "scalability": [],
+  "best_practices": [],
   "recommendation": {
-    "verdict": "APPROVE",
-    "label": "✅ Approve",
-    "reason": "No issues found. Ready to merge."
+    "verdict": "APPROVE" | "REVIEW" | "REJECT",
+    "label": "Approve" | "Review Required" | "Reject or Rework",
+    "reason": "No critical issues found. Ready to merge."
   },
   "files": [
     {
-      "name": "src/app/modules/booking/booking.service.js",
+      "name": "src/file.js",
       "status": "modified",
       "additions": 3,
       "deletions": 3,
@@ -91,61 +87,58 @@ curl -X POST http://localhost:3000/api/review \
 }
 ```
 
-#### Response Fields
+### Response Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `meta` | object | PR metadata (title, author, stats) |
-| `meta.stats` | object | `additions`, `deletions`, `filesChanged` |
-| `reviews` | array | All findings (flat list) |
-| `strengths` | array | ✅ Positive findings |
-| `concerns` | array | ⚠️ Issues needing attention |
-| `bugs` | array | 🐛 Potential runtime errors |
-| `info` | array | ℹ️ Neutral observations |
-| `recommendation` | object | Verdict with label and reason |
-| `recommendation.verdict` | string | `APPROVE` / `REVIEW` / `REJECT` |
-| `files` | array | List of changed files with diff stats |
+| `reviews` | array | Flat list of all findings |
+| `strengths` | array | Findings with type STRENGTH |
+| `concerns` | array | Findings with type CONCERN |
+| `bugs` | array | Findings with type BUG |
+| `info` | array | Findings with type INFO |
+| `performance` | array | Performance-related findings |
+| `security` | array | Security-related findings |
+| `readability` | array | Readability-related findings |
+| `bugs_cat` | array | Bug-related findings |
+| `scalability` | array | Scalability-related findings |
+| `best_practices` | array | Best-practice-related findings |
+| `recommendation.verdict` | string | `APPROVE`, `REVIEW`, or `REJECT` |
+| `files` | array | Changed files with diff stats |
 
-#### Error Response
+### Error Response
 
 ```json
-{
-  "error": "PR not found or authentication failed"
-}
+{ "error": "PR not found or authentication failed" }
 ```
 
 | Status | Meaning |
 |--------|---------|
 | 400 | Missing `prUrl` or `token` |
-| 401/403 | Invalid or expired GitHub token |
+| 401/403 | Invalid or expired token |
 | 404 | PR or repository not found |
+| 422 | GitHub API validation failure |
 | 500 | Internal server error |
 
 ---
 
-### `POST /api/review/preview`
+## `POST /api/review/preview`
 
-Lightweight PR metadata preview (no full analysis). Useful for showing PR info before committing to a full review.
+Lightweight PR metadata preview (no analysis).
 
-#### Request
+### Request
 
-Same body as `/api/review`:
-```json
-{
-  "prUrl": "https://github.com/user/repo/pull/17",
-  "token": "ghp_xxxxxx"
-}
-```
+Same body as `/api/review`.
 
-#### Response
+### Response
 
 ```json
 {
-  "title": "Feat(order Change): Updated OrderChange response for none case",
+  "title": "Feat(order Change): ...",
   "author": "NaimBiswas",
   "number": 17,
   "state": "open",
-  "html_url": "https://github.com/Laststop-live/Bintech.ndc/pull/17",
+  "html_url": "https://github.com/...",
   "created_at": "2026-05-19T04:01:01Z",
   "head": { "ref": "feature/order-change", "sha": "abc123" },
   "base": { "ref": "main", "sha": "def456" }
@@ -154,11 +147,71 @@ Same body as `/api/review`:
 
 ---
 
-### `GET /api/health`
+## `POST /api/review/post`
+
+Posts the review results as a GitHub PR review comment. The server formats the results into a professional markdown review and submits it via the GitHub API.
+
+### Request
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `prUrl` | string | Yes | Full GitHub PR URL |
+| `token` | string | Yes | GitHub personal access token |
+| `review` | object | Yes | Full review object from `/api/review` response |
+
+```bash
+curl -X POST http://localhost:3000/api/review/post \
+  -H "Content-Type: application/json" \
+  -d '{"prUrl": "...", "token": "ghp_xxx", "review": { ... }}'
+```
+
+### Response
+
+```json
+{
+  "id": 123456789,
+  "html_url": "https://github.com/user/repo/pull/17#pullrequestreview-123456789",
+  "message": "Review posted successfully"
+}
+```
+
+---
+
+## `POST /api/review/merge`
+
+Merges the pull request via GitHub API.
+
+### Request
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `prUrl` | string | Yes | Full GitHub PR URL |
+| `token` | string | Yes | GitHub personal access token (write access) |
+| `mergeMethod` | string | No | `merge` (default), `squash`, or `rebase` |
+
+```bash
+curl -X POST http://localhost:3000/api/review/merge \
+  -H "Content-Type: application/json" \
+  -d '{"prUrl": "...", "token": "ghp_xxx", "mergeMethod": "squash"}'
+```
+
+### Response
+
+```json
+{
+  "sha": "abc123def456",
+  "merged": true,
+  "message": "Pull request successfully merged"
+}
+```
+
+---
+
+## `GET /api/health`
 
 Server health check.
 
-#### Response
+### Response
 
 ```json
 {
@@ -167,103 +220,18 @@ Server health check.
 }
 ```
 
-## Client-Server Communication Sequence
-
-```
-Client (Browser)              Server (Node)              GitHub API
-     │                            │                        │
-     │─── POST /api/review ──────>│                        │
-     │    { prUrl, token }        │                        │
-     │                            │─── GET /repos/... ────>│
-     │                            │    Authorization: Bear │
-     │                            │<─── PR + Files JSON ──│
-     │                            │                        │
-     │                            │ analyzePR(prData, files)
-     │                            │                        │
-     │<── JSON Review Report ─────│                        │
-     │                            │                        │
-     │       Render UI            │                        │
-```
-
-## How the Client Calls Opencode Analysis
-
-The client (browser) does NOT call opencode directly. Instead:
-
-1. **Client sends request** → `POST /api/review` with `{ prUrl, token }`
-2. **Server processes** → Fetches from GitHub, runs analyzer
-3. **Server returns** → Structured JSON report
-4. **Client renders** → Builds DOM elements from response data
-
-The client JS maps server response to UI sections:
-
-```javascript
-// Client-side rendering logic (simplified)
-const res = await fetch('/api/review', { method: 'POST', body: JSON.stringify({ prUrl, token }) });
-const data = await res.json();
-
-// Render strengths
-data.strengths.forEach(s => renderCard('strength', s));
-
-// Render concerns  
-data.concerns.forEach(c => renderCard('concern', c));
-
-// Render bugs
-data.bugs.forEach(b => renderCard('bug', b));
-
-// Show recommendation
-showRecommendation(data.recommendation);
-
-// List files
-data.files.forEach(f => renderFileRow(f));
-```
-
-## Error Handling
-
-### Client-Side
-
-```javascript
-try {
-  const res = await fetch('/api/review', { method: 'POST', body: ... });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error);
-  // Process data...
-} catch (err) {
-  // Show error to user, reset form
-}
-```
-
-### Server-Side
-
-```javascript
-// review.js route handler
-try {
-  const [prData, files] = await Promise.all([fetchPR(...), fetchPRFiles(...)]);
-  const review = analyzePR(prData, files);
-  res.json(review);
-} catch (err) {
-  const status = err.response?.status || 500;
-  res.status(status).json({ error: err.response?.data?.message || err.message });
-}
-```
-
-## Rate Limiting
-
-Both the server's GitHub API calls and the client's requests are subject to rate limits:
-
-- **GitHub API**: 5000 requests/hour with authenticated token
-- **Server**: No built-in rate limiter (add `express-rate-limit` for production)
-- **Client**: Browser fetch has no rate limiting (depends on server)
+---
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GITHUB_TOKEN` | No (pass in body) | Default token for server-side use |
-| `PORT` | No | Server port (default: 3000) |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `GITHUB_TOKEN` | No | — | Default token for server-side use |
+| `PORT` | No | 3000 | Server port |
 
-## Testing the API
+---
 
-### Using curl
+## Testing with curl
 
 ```bash
 # Health check
@@ -280,15 +248,15 @@ curl -X POST http://localhost:3000/api/review/preview \
   -d '{"prUrl": "https://github.com/user/repo/pull/17", "token": "ghp_xxxx"}'
 ```
 
-### Using the CLI
+## Testing with CLI
 
 ```bash
-# Full review (terminal output)
+# Full review
 npm run review https://github.com/user/repo/pull/17 -- --token ghp_xxxx
 
-# JSON output
+# Raw JSON output
 npm run review https://github.com/user/repo/pull/17 -- --token ghp_xxxx --json
 
-# Save to file
+# Save markdown report to file
 npm run review https://github.com/user/repo/pull/17 -- --token ghp_xxxx -o report.md
 ```
