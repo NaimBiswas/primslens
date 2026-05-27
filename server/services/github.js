@@ -200,7 +200,7 @@ function generateReviewBody(review) {
   const verdictLine = recommendation.verdict === 'APPROVE' ? 'Approve' : recommendation.verdict === 'REJECT' ? 'Changes requested' : 'Review required';
   const totalBugs = (review.bugs || []).length;
   const totalConcerns = (review.concerns || []).length;
-  md += `- **Verdict** \u2014 ${verdictLine} (${totalBugs} bug(s), ${totalConcerns} concern(s))\n`;
+  md += `- **Verdict** \u2014 ${verdictLine}\n`;
 
   let hasDetail = false;
   for (const cat of CATEGORIES) {
@@ -209,9 +209,12 @@ function generateReviewBody(review) {
     hasDetail = true;
     md += `\n### ${cat.label}\n\n`;
     for (const item of items) {
-      const sev = item.severity ? `[${item.severity}] ` : '';
+      const sev = item.severity ? `${item.severity} ` : '';
       const typeLabel = item.type.charAt(0) + item.type.slice(1).toLowerCase();
-      md += `- **${typeLabel}** ${sev}\u2014 ${item.issue}\n`;
+      const file = item.file || extractFileFromIssue(item.issue);
+      const cleanIssue = file ? item.issue.replace(new RegExp(`\\s+in\\s+${escapeRegex(file)}$`), '') : item.issue;
+      md += `- **${typeLabel}** ${sev}\u2014 ${cleanIssue}\n`;
+      if (file) md += `  \`${file}\`\n`;
       if (item.recommendation) {
         md += `  > ${item.recommendation}\n`;
       }
@@ -226,8 +229,17 @@ function generateReviewBody(review) {
 
   if (!hasDetail) md += `\n_No specific findings._\n`;
 
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractFileFromIssue(issue) {
+  const match = issue.match(/\s+in\s+(\S+)$/);
+  return match ? match[1] : '';
+}
+
   md += `\n---\n`;
-  md += `### Recommendation\n\n`;
+  md += `### Comment\n\n`;
   md += `**${recommendation.label}**\n\n`;
   md += `${recommendation.reason}  \n`;
   md += `\n_Reviewed by PrismLens_\n`;

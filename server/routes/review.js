@@ -80,7 +80,7 @@ router.post('/review/post', async (req, res) => {
   } catch (err) {
     const status = err.response?.status || 500;
     const data = err.response?.data;
-    const msg = data?.errors?.[0]?.message || data?.message || err.message;
+    const msg = data?.errors?.join(", ") || data?.message || err.message;
     res.status(status).json({ error: msg });
   }
 });
@@ -100,6 +100,7 @@ router.post('/review/merge', async (req, res) => {
     const result = await mergePR(prUrl, token, mergeMethod || 'merge');
     res.json({ sha: result.sha, merged: result.merged, message: result.message || 'Pull request merged' });
   } catch (err) {
+    console.log(JSON.stringify(err?.response.data, null, 2))
     const status = err.response?.status || 500;
     const data = err.response?.data;
     const msg = data?.errors?.[0]?.message || data?.message || err.message;

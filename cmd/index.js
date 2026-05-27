@@ -112,7 +112,7 @@ function generateMarkdown(review) {
     if (!items.length) continue;
     md += `## ${cat.icon} ${cat.label}\n\n`;
     items.forEach((r) => {
-      const sev = r.severity ? `[${r.severity}] ` : '';
+      const sev = r.severity ? `${r.severity} ` : '';
       md += `- **${r.type}** ${sev}${r.issue}\n`;
       if (r.recommendation) md += `  > ${r.recommendation}\n`;
     });
