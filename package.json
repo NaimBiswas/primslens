@@ -1,0 +1,38 @@
+{
+  "name": "prismlens",
+  "version": "1.0.0",
+  "description": "PrismLens — Opencode-style code review with cyberpunk glassmorphism UI",
+  "type": "module",
+  "scripts": {
+    "server": "node server/index.js",
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "review": "node cmd/index.js review",
+    "cli": "node cmd/index.js",
+    "help": "node cmd/index.js --help",
+    "health": "node -e \"fetch('http://localhost:3000/api/health').then(r=>r.json()).then(console.log)\"",
+    "client:install": "cd client && npm install",
+    "client:dev": "cd client && npm run dev",
+    "client:build": "cd client && npm run build",
+    "build": "npm run client:build",
+    "deploy": "npm run client:build && npm run server"
+  },
+  "keywords": [
+    "pr-review",
+    "code-review",
+    "cyberpunk",
+    "opencode",
+    "analysis"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.16.1",
+    "commander": "^14.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.2.0",
+    "morgan": "^1.10.1"
+  }
+}
