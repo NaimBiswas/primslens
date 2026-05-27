@@ -188,9 +188,11 @@ function generateReviewBody(review) {
     const bugs = items.filter((i) => i.type === 'BUG').length;
     const concerns = items.filter((i) => i.type === 'CONCERN').length;
     const strengths = items.filter((i) => i.type === 'STRENGTH').length;
+    const infos = items.filter((i) => i.type === 'INFO').length;
     const parts = [];
     if (bugs) parts.push(`${bugs} bug(s)`);
     if (concerns) parts.push(`${concerns} concern(s)`);
+    if (infos) parts.push(`${infos} info`);
     if (strengths) parts.push(`${strengths} strength(s)`);
     md += `- **${cat.label}** \u2014 ${parts.join(', ') || 'no findings'}\n`;
   }
