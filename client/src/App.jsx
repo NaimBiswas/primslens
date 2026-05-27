@@ -1,0 +1,310 @@
+import { useState } from 'react';
+import { reviewPR, postReviewToPR, mergePR, ApiError } from './services/api.js';
+import './cyberpunk.css';
+
+const TOKEN_KEY = 'PRISMLENS_TOKEN';
+
+function getSavedToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+}
+
+function saveToken(token) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {}
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s ?? '';
+  return d.innerHTML;
+}
+
+const CATEGORIES = [
+  { key: 'performance', icon: '⚡', label: 'Performance' },
+  { key: 'security', icon: '🔒', label: 'Security' },
+  { key: 'readability', icon: '📖', label: 'Readability' },
+  { key: 'bugs_cat', icon: '🐛', label: 'Bugs' },
+  { key: 'scalability', icon: '📊', label: 'Scalability' },
+  { key: 'best_practices', icon: '✅', label: 'Best Practices' },
+];
+
+const SEVERITY_CLASSES = {
+  critical: 'sev-critical',
+  high: 'sev-high',
+  medium: 'sev-medium',
+  low: 'sev-low',
+};
+
+const TYPE_LABELS = {
+  BUG: 'Bug',
+  CONCERN: 'Concern',
+  STRENGTH: 'Strength',
+  INFO: 'Info',
+};
+
+export default function App() {
+  const [prUrl, setPrUrl] = useState('');
+  const [token, setToken] = useState(getSavedToken);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState(null);
+  const [postSuccess, setPostSuccess] = useState(null);
+  const [merging, setMerging] = useState(false);
+  const [mergeError, setMergeError] = useState(null);
+  const [mergeSuccess, setMergeSuccess] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!prUrl.trim()) return alert('Enter a PR URL');
+    if (!token.trim()) return alert('Enter a GitHub token');
+
+    saveToken(token.trim());
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const data = await reviewPR(prUrl.trim(), token.trim());
+      setResult(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMerge = async () => {
+    if (!prUrl.trim() || !token.trim()) return;
+    setMerging(true);
+    setMergeError(null);
+    setMergeSuccess(null);
+    try {
+      const data = await mergePR(prUrl.trim(), token.trim());
+      setMergeSuccess(data.message || 'Pull request merged');
+    } catch (err) {
+      setMergeError(err.message);
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const handlePostToPR = async () => {
+    if (!prUrl.trim() || !token.trim() || !result) return;
+    setPosting(true);
+    setPostError(null);
+    setPostSuccess(null);
+    try {
+      const data = await postReviewToPR(prUrl.trim(), token.trim(), result);
+      setPostSuccess(data.html_url || `Review #${data.id} posted`);
+    } catch (err) {
+      setPostError(err.message);
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setError(null);
+    setPostSuccess(null);
+    setPostError(null);
+    setMergeSuccess(null);
+    setMergeError(null);
+    setLoading(false);
+  };
+
+  const handleTokenChange = (e) => {
+    setToken(e.target.value);
+    saveToken(e.target.value);
+  };
+
+  const rec = result?.recommendation;
+  const recClass = rec?.verdict === 'APPROVE' ? 'approve'
+    : rec?.verdict === 'REVIEW' ? 'review'
+    : rec?.verdict === 'REJECT' ? 'reject' : '';
+
+  return (
+    <div className="container">
+      <header>
+        <h1>PRISMLENS</h1>
+        <p className="subtitle">Opencode-style Code Analysis</p>
+      </header>
+
+      <main className="card">
+        {!result && !loading && (
+          <form id="inputForm" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="prUrl">PR URL</label>
+              <input
+                id="prUrl"
+                type="url"
+                placeholder="https://github.com/user/repo/pull/17"
+                value={prUrl}
+                onChange={(e) => setPrUrl(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="token">GitHub Token</label>
+              <input
+                id="token"
+                type="text"
+                placeholder="ghp_xxxxxx"
+                value={token}
+                onChange={handleTokenChange}
+              />
+              <small className="hint">
+                Stored locally. Get one at{' '}
+                <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">github.com/settings/tokens</a>
+              </small>
+            </div>
+            <button type="submit" className="btn">🔍 Review PR</button>
+          </form>
+        )}
+
+        {loading && (
+          <div className="loading">
+            <div className="spinner" />
+            <p className="loading-text">ANALYZING CODE CHANGES...</p>
+            <small>Fetching PR • Checking performance • Security scan • Readability • Bug detection • Scalability • Best practices</small>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="error-block">
+            <p>❌ {esc(error)}</p>
+            <button className="btn btn-secondary" onClick={handleReset}>Try Again</button>
+          </div>
+        )}
+
+        {result && !loading && (
+          <>
+            <div className="section-title blue">PR INFO</div>
+            <div className="pr-info">
+              {[
+                { label: 'Title', value: result.meta?.prTitle, cls: '' },
+                { label: 'Author', value: result.meta?.prAuthor, cls: '' },
+                { label: 'Files', value: result.meta?.stats?.filesChanged, cls: '' },
+                { label: 'Added', value: `+${result.meta?.stats?.additions}`, cls: 'green' },
+                { label: 'Deleted', value: `-${result.meta?.stats?.deletions}`, cls: 'red' },
+              ].map((item) => (
+                <div className="info-card" key={item.label}>
+                  <h3>{item.label}</h3>
+                  <p className={item.cls}>{item.value ?? '-'}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="section-title blue">CATEGORY OVERVIEW</div>
+            <div className="category-overview">
+              {CATEGORIES.map((cat) => {
+                const items = result[cat.key] || [];
+                if (!items.length) return null;
+                const bugs = items.filter((i) => i.type === 'BUG').length;
+                const concerns = items.filter((i) => i.type === 'CONCERN').length;
+                return (
+                  <div className={`cat-badge ${bugs ? 'cat-bad' : concerns ? 'cat-warn' : 'cat-good'}`} key={cat.key}>
+                    <span className="cat-icon">{cat.icon}</span>
+                    <span className="cat-label">{cat.label}</span>
+                    <span className="cat-count">{items.length}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="scroll-container">
+              {CATEGORIES.map((cat) => {
+                const items = result[cat.key] || [];
+                if (!items.length) return null;
+                return (
+                  <CategorySection
+                    key={cat.key}
+                    icon={cat.icon}
+                    title={cat.label}
+                    items={items}
+                  />
+                );
+              })}
+
+              {CATEGORIES.every((cat) => !(result[cat.key] || []).length) && (
+                <div className="empty-state">No review findings.</div>
+              )}
+            </div>
+
+            <div className={`recommendation-box ${recClass}`}>
+              <h3>{rec?.label || 'PENDING'}</h3>
+              <p>{rec?.reason || ''}</p>
+            </div>
+
+            <div className="file-list">
+              <div className="section-title blue">FILE CHANGES</div>
+              {(result.files ?? []).length === 0 ? (
+                <div className="empty-state">No file changes found.</div>
+              ) : (
+                result.files.map((f) => (
+                  <div className="file-item" key={f.name}>
+                    <span className="file-name">{esc(f.name)}</span>
+                    <div className="file-stats">
+                      <span className="stat-add">+{f.additions || 0}</span>
+                      <span className="stat-del">-{f.deletions || 0}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="post-section">
+              <div className="btn-group">
+                <button className="btn btn-post" onClick={handlePostToPR} disabled={posting}>
+                  {posting ? 'Posting...' : 'Post to PR'}
+                </button>
+                {rec?.verdict === 'APPROVE' && (
+                  <button className="btn btn-merge" onClick={handleMerge} disabled={merging}>
+                    {merging ? 'Merging...' : 'Merge PR'}
+                  </button>
+                )}
+                <button className="btn btn-secondary" onClick={handleReset}>Review Another PR</button>
+              </div>
+              {postError && <p className="post-error">{esc(postError)}</p>}
+              {postSuccess && (
+                <p className="post-success">
+                  Review posted. <a href={postSuccess} target="_blank" rel="noreferrer">View on GitHub</a>
+                </p>
+              )}
+              {mergeError && <p className="post-error">{esc(mergeError)}</p>}
+              {mergeSuccess && (
+                <p className="post-success">{mergeSuccess}</p>
+              )}
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function CategorySection({ icon, title, items }) {
+  return (
+    <>
+      <div className="section-title category-title">{icon} {title} ({items.length})</div>
+      {items.map((item, i) => (
+        <div className={`review-item ${item.type === 'BUG' ? 'bug' : item.type === 'CONCERN' ? 'concern' : item.type === 'STRENGTH' ? 'strength' : 'info'}`} key={i}>
+          <div className="review-header">
+            <span className="review-title">{esc(item.issue)}</span>
+            <div className="review-meta">
+              <span className={`sev-badge ${SEVERITY_CLASSES[item.severity] || ''}`}>{item.severity}</span>
+              <span className="type-badge">{TYPE_LABELS[item.type] || item.type}</span>
+            </div>
+          </div>
+          {item.recommendation && (
+            <div className="review-recommendation">{esc(item.recommendation)}</div>
+          )}
+        </div>
+      ))}
+    </>
+  );
+}
