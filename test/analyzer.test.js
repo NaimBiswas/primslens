@@ -89,3 +89,23 @@ test('tags results with the fallback analysis mode', () => {
   const result = analyzeFallback(makePrData(), [file]);
   assert.equal(result.meta.analysisMode, 'fallback');
 });
+
+test('flags a substantial code change with no test file as a best-practices concern', () => {
+  const lines = Array.from({ length: 20 }, (_, i) => `+function step${i}() { return ${i}; }`);
+  const file = makeFile('src/feature.js', lines);
+  const result = analyzeFallback(makePrData(), [file]);
+  assert.ok(result.best_practices.some((f) => /no accompanying test file/i.test(f.issue)));
+});
+
+test('does not flag missing tests when a test file is part of the PR', () => {
+  const lines = Array.from({ length: 20 }, (_, i) => `+function step${i}() { return ${i}; }`);
+  const files = [makeFile('src/feature.js', lines), makeFile('src/feature.test.js', ['+test("step0", () => {});'])];
+  const result = analyzeFallback(makePrData(), files);
+  assert.ok(!result.best_practices.some((f) => /no accompanying test file/i.test(f.issue)));
+});
+
+test('does not flag missing tests for small changes', () => {
+  const file = makeFile('src/tiny.js', ['+const x = 1;']);
+  const result = analyzeFallback(makePrData(), [file]);
+  assert.ok(!result.best_practices.some((f) => /no accompanying test file/i.test(f.issue)));
+});

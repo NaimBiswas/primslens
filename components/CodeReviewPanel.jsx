@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { reviewPR, postReviewToPR, approvePR, mergePR } from '../lib/api-client.js';
+import { reviewPR, postReviewToPR, approvePR, mergePR, describePR, labelPR, submitFeedback } from '../lib/api-client.js';
 import ChatPanel from './ChatPanel.jsx';
 
 const TOKEN_KEY = 'PRISMLENS_TOKEN';
@@ -71,6 +71,12 @@ export default function CodeReviewPanel() {
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState(null);
   const [mergeSuccess, setMergeSuccess] = useState(null);
+  const [describing, setDescribing] = useState(false);
+  const [describeError, setDescribeError] = useState(null);
+  const [describeSuccess, setDescribeSuccess] = useState(null);
+  const [labeling, setLabeling] = useState(false);
+  const [labelError, setLabelError] = useState(null);
+  const [labelSuccess, setLabelSuccess] = useState(null);
 
   // Loaded after mount (not in the initial state) so the server-rendered
   // markup and the first client render match — localStorage doesn't exist
@@ -145,6 +151,36 @@ const handleSubmit = async (e) => {
     }
   };
 
+  const handleDescribe = async () => {
+    if (!prUrl.trim() || !token.trim() || !result) return;
+    setDescribing(true);
+    setDescribeError(null);
+    setDescribeSuccess(null);
+    try {
+      const data = await describePR(prUrl.trim(), token.trim(), result);
+      setDescribeSuccess(data.html_url || 'Description updated');
+    } catch (err) {
+      setDescribeError(err.message);
+    } finally {
+      setDescribing(false);
+    }
+  };
+
+  const handleLabel = async () => {
+    if (!prUrl.trim() || !token.trim() || !result) return;
+    setLabeling(true);
+    setLabelError(null);
+    setLabelSuccess(null);
+    try {
+      const data = await labelPR(prUrl.trim(), token.trim(), result);
+      setLabelSuccess((data.labels || []).join(', ') || 'Labels applied');
+    } catch (err) {
+      setLabelError(err.message);
+    } finally {
+      setLabeling(false);
+    }
+  };
+
   const handleReset = () => {
     setResult(null);
     setError(null);
@@ -154,6 +190,10 @@ const handleSubmit = async (e) => {
     setApproveError(null);
     setMergeSuccess(null);
     setMergeError(null);
+    setDescribeSuccess(null);
+    setDescribeError(null);
+    setLabelSuccess(null);
+    setLabelError(null);
     setLoading(false);
   };
 
@@ -270,6 +310,7 @@ const handleSubmit = async (e) => {
                     icon={cat.icon}
                     title={cat.label}
                     items={items}
+                    prUrl={prUrl.trim()}
                   />
                 );
               })}
@@ -308,6 +349,12 @@ const handleSubmit = async (e) => {
                     {merging ? 'Merging...' : 'Merge'}
                   </button>
                 )}
+                <button className="btn btn-secondary" onClick={handleDescribe} disabled={describing}>
+                  {describing ? 'Describing...' : 'Describe'}
+                </button>
+                <button className="btn btn-secondary" onClick={handleLabel} disabled={labeling}>
+                  {labeling ? 'Labeling...' : 'Label'}
+                </button>
                 <button className="btn btn-chat" onClick={() => setChatOpen(true)}>Chat</button>
                 <button className="btn btn-secondary" onClick={handleReset}>New Review</button>
               </div>
@@ -327,6 +374,17 @@ const handleSubmit = async (e) => {
               {mergeSuccess && (
                 <p className="post-success">{mergeSuccess}</p>
               )}
+              {describeError && <p className="post-error">{esc(describeError)}</p>}
+              {describeSuccess && (
+                <p className="post-success">
+                  Description updated.{' '}
+                  {describeSuccess.startsWith('http') ? (
+                    <a href={describeSuccess} target="_blank" rel="noreferrer">View on GitHub</a>
+                  ) : describeSuccess}
+                </p>
+              )}
+              {labelError && <p className="post-error">{esc(labelError)}</p>}
+              {labelSuccess && <p className="post-success">Labels applied: {esc(labelSuccess)}</p>}
             </div>
           </>
         )}
@@ -387,7 +445,19 @@ function sevClass(severity) {
   return SEVERITY_CLASSES[severity] || '';
 }
 
-function CategorySection({ icon, title, items }) {
+function CategorySection({ icon, title, items, prUrl }) {
+  const [votes, setVotes] = useState({});
+
+  const vote = async (item, i, choice) => {
+    if (votes[i]) return;
+    setVotes((v) => ({ ...v, [i]: choice }));
+    try {
+      await submitFeedback(prUrl, item, choice);
+    } catch {
+      setVotes((v) => ({ ...v, [i]: undefined }));
+    }
+  };
+
   return (
     <>
       <div className="section-title category-title">{icon} {title} <span className="cat-section-count">{items.length}</span></div>
@@ -407,6 +477,27 @@ function CategorySection({ icon, title, items }) {
           {item.recommendation && (
             <div className="review-recommendation">{esc(item.recommendation)}</div>
           )}
+          <div className="review-feedback">
+            <button
+              type="button"
+              className={`feedback-btn ${votes[i] === 'up' ? 'feedback-btn-active' : ''}`}
+              onClick={() => vote(item, i, 'up')}
+              disabled={!!votes[i]}
+              title="Helpful finding"
+            >
+              👍
+            </button>
+            <button
+              type="button"
+              className={`feedback-btn ${votes[i] === 'down' ? 'feedback-btn-active' : ''}`}
+              onClick={() => vote(item, i, 'down')}
+              disabled={!!votes[i]}
+              title="Not useful — avoid flagging patterns like this in future AI reviews"
+            >
+              👎
+            </button>
+            {votes[i] && <span className="feedback-thanks">Thanks — noted for future reviews</span>}
+          </div>
         </div>
       ))}
     </>

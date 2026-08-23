@@ -21,6 +21,9 @@ prismlens/
 │       ├── automation/status/route.js # GET /api/automation/status — for the Automation dashboard tab
 │       ├── model/route.js           # GET/POST /api/model — for the Model dashboard tab
 │       ├── providers/route.js       # GET/POST/DELETE /api/providers — connect other opencode providers
+│       ├── review/describe/route.js # POST /api/review/describe — auto-generated PR description
+│       ├── review/label/route.js    # POST /api/review/label — size/risk labels
+│       ├── feedback/route.js        # POST /api/feedback — 👍/👎 on a finding
 │       └── webhooks/github/route.js # POST /api/webhooks/github — automated PR-comment responder
 ├── components/
 │   ├── CodeReviewPanel.jsx          # The review tool itself (dashboard's "Code Review" tab), "use client"
@@ -29,17 +32,20 @@ prismlens/
 │   ├── ChatPanel.jsx                # Chat overlay, "use client"
 │   └── Reveal.jsx                   # Scroll-reveal utility, "use client"
 ├── lib/
-│   ├── api-client.js                # reviewPR, postReviewToPR, mergePR (fetch wrapper)
+│   ├── api-client.js                # reviewPR, postReviewToPR, mergePR, describePR, labelPR, submitFeedback (fetch wrapper)
 │   ├── api-error.js                 # shared GitHub-error → HTTP-status mapping
 │   ├── webhook-verify.js            # GitHub webhook signature verification + event filtering
 │   └── services/
-│       ├── github.js                # fetchPR, fetchPRFiles, postPRReview, mergePR, reply/comment helpers
-│       ├── analyzer.js              # 6-dimension per-file review engine
+│       ├── github.js                # fetchPR, fetchPRFiles, postPRReview, mergePR, updatePRDescription, computeLabels/applyLabels, reply/comment helpers
+│       ├── analyzer.js              # 6-dimension per-file review engine; orchestrates review-config, dependency-scan, and feedback
 │       ├── chat.js                  # opencode-backed chat, spawns opencode CLI
 │       ├── automation.js            # webhook → analyze comment → reply pipeline
 │       ├── models.js                # lists opencode's free models + models from connected providers
 │       ├── model-config.js          # persists the selected model (.prismlens-config.json)
 │       ├── providers.js             # models.dev catalog + opencode's auth.json (connect/disconnect providers)
+│       ├── review-config.js         # loads per-repo .prismlens.json (ignore paths, severity overrides, disabled checks)
+│       ├── dependency-scan.js       # OSV.dev vulnerability scan for package.json dependencies
+│       ├── feedback.js              # 👍/👎 log (.prismlens-feedback.json), feeds "avoid patterns like this" back into the AI prompt
 │       └── shared.js                # locates the opencode binary
 ├── cmd/
 │   └── index.js                     # CLI — imports lib/services/analyzer.js directly, supports --json, -o file
@@ -72,7 +78,8 @@ One Next.js process serves both the UI (`app/page.jsx`) and the JSON API (`app/a
 - Input form for PR URL and GitHub token
 - Displays review results grouped by 6 categories (Performance, Security, Readability, Bugs, Scalability, Best Practices)
 - Shows severity badges (critical/high/medium/low) and type badges (Bug/Concern/Strength/Info)
-- Actions: **Post to PR** (submits review as GitHub PR review comment), **Merge PR** (merges the PR, shown only on APPROVE), **Chat** (opens `ChatPanel`)
+- Actions: **Post to PR** (submits review as GitHub PR review comment), **Describe** (regenerates the PR description from the review), **Label** (applies derived `size/*`/`risk/*` labels), **Merge PR** (merges the PR, shown only on APPROVE), **Chat** (opens `ChatPanel`)
+- Every finding has 👍/👎 feedback buttons (`POST /api/feedback`) — see [Review-Time Enrichment](#5-review-time-enrichment-lib-servicesreview-configjs-dependency-scanjs-feedbackjs) below
 - Token persisted in `localStorage` under `PRISMLENS_TOKEN`
 - Dev: `npm run dev`; Production: `npm run build && npm run start` — both a single process, no build-then-serve-statically step to coordinate
 
@@ -97,6 +104,16 @@ One Next.js process serves both the UI (`app/page.jsx`) and the JSON API (`app/a
 - **Propose-only**: the agent's own preview → confirm → commit workflow (see `.opencode/agents/prismlens-chat.md`) means the automated reply is always analysis or a fix preview — it never commits without an explicit human confirmation, and this build doesn't wire up that confirmation step at all
 - Uses `GITHUB_TOKEN` server-side (unlike the interactive UI, which never stores a token) — see `docs/api.md` for the env vars and webhook registration steps
 - Output grouped by the 6 categories with severity breakdown
+
+### 5. Review-time enrichment (`lib/services/review-config.js`, `dependency-scan.js`, `feedback.js`)
+
+Three independent, optional layers `analyzePR()` composes on top of the core per-file analysis. Each degrades silently if unavailable — none can fail or block a review:
+
+- **`review-config.js`** — fetches `.prismlens.json` from the PR's own branch (via the existing `fetchFileContent`) before analysis runs. `ignorePaths` (glob, `*` within a path segment / `**` across segments) filters which files even reach the analyzer; `severityOverrides` and `disabledChecks` are applied to every finding afterward, AI-generated or fallback-regex alike. No file, or invalid JSON → an empty/default config, not an error.
+- **`dependency-scan.js`** — runs only if the diff touches `package.json` and only if a `token` was passed to `analyzePR()`. Fetches the full manifest, merges `dependencies`+`devDependencies` (capped at 40 to bound request volume), and queries [OSV.dev](https://osv.dev) per-package with an 8s timeout. Results become `security`-category `BUG` findings folded in via `mergeFindings()` — a helper that recomputes every categorized array (`reviews`, `strengths`/`concerns`/`bugs`/`info`, per-dimension) rather than duplicating `buildResult()`'s categorization logic inline.
+- **`feedback.js`** — `POST /api/feedback` appends a 👍/👎 record to `.prismlens-feedback.json` (gitignored, capped at the 200 most recent entries). `analyzeWithOpenCode()` reads the last 10 👎'd issue texts and passes them to the AI as `avoidPatternsLike` — a calibration signal ("don't re-flag things phrased like this"), not a hard suppression rule; see `.opencode/agents/prismlens-review.md`.
+
+Also folded into every review, no separate service: `analyzer.js`'s `checkMissingTests()` flags a PR that adds 15+ lines of new code across non-test files without touching any test file itself, as a `best-practices` `CONCERN`.
 
 ## Analysis Pipeline
 

@@ -563,6 +563,46 @@ input::placeholder {
   border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
+/* ─── Finding Feedback ────────────────────────────────── */
+
+.review-feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.feedback-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.feedback-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.feedback-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.feedback-btn-active {
+  opacity: 1;
+  border-color: var(--neon-blue);
+  background: rgba(5, 217, 232, 0.1);
+}
+
+.feedback-thanks {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
 /* ─── Category Overview ──────────────────────────────── */
 
 .category-overview {

@@ -21,6 +21,9 @@ prismlens/
 │       ├── automation/status/route.js  # GET /api/automation/status
 │       ├── model/route.js              # GET/POST /api/model
 │       ├── providers/route.js          # GET/POST/DELETE /api/providers
+│       ├── review/describe/route.js    # POST /api/review/describe — auto-generated PR description
+│       ├── review/label/route.js       # POST /api/review/label — size/risk labels
+│       ├── feedback/route.js           # POST /api/feedback — 👍/👎 on a finding
 │       └── webhooks/github/route.js    # POST /api/webhooks/github — automated PR-comment responder
 ├── components/
 │   ├── CodeReviewPanel.jsx  # Dashboard's "Code Review" tab
@@ -31,11 +34,14 @@ prismlens/
 │   ├── api-client.js       # fetch wrapper used by the UI
 │   ├── webhook-verify.js   # GitHub webhook signature verification
 │   └── services/
-│       ├── github.js       # GitHub API (fetch, post review, merge, reply)
-│       ├── analyzer.js     # 6-dimension per-file review engine
+│       ├── github.js       # GitHub API (fetch, post review, merge, reply, describe, label)
+│       ├── analyzer.js     # 6-dimension per-file review engine + orchestrates config/dep-scan
 │       ├── automation.js   # webhook → analyze comment → reply pipeline
 │       ├── models.js       # lists opencode's free models + connected-provider models
-│       └── providers.js    # models.dev catalog + opencode's credential store
+│       ├── providers.js    # models.dev catalog + opencode's credential store
+│       ├── review-config.js # loads per-repo .prismlens.json (ignore paths, severity overrides, disabled checks)
+│       ├── dependency-scan.js # OSV.dev vulnerability scan for package.json
+│       └── feedback.js     # 👍/👎 log, feeds "avoid patterns like this" back into the AI prompt
 ├── cmd/index.js            # CLI tool (imports analyzer directly)
 ├── docs/                   # Architecture + API docs
 └── package.json
@@ -60,7 +66,14 @@ npm run review https://github.com/user/repo/pull/17
 
 - **6-dimension analysis** — every file checked for performance, security, readability, bugs, scalability, and best practices
 - **Severity levels** — critical, high, medium, low with visual badges
-- **Post to PR** — submit the review as a GitHub PR review comment (professional format with performance suggestions)
+- **Post to PR** — submit the review as a GitHub PR review comment, with inline `suggestion` code blocks (one-click-apply diffs) across every category, not just performance
+- **Auto-generated PR description** — a **Describe** button replaces the PR body with a file-by-file summary + review snapshot generated from the same analysis
+- **Size/risk labels** — a **Label** button derives `size/*` and `risk/*` labels from the diff size and verdict and applies them (creating the labels on the repo first if they don't exist)
+- **Missing-test detection** — flags a PR that adds substantial new code but touches no test file, folded into Best Practices rather than a new dimension
+- **Dependency vulnerability scanning** — when a PR touches `package.json`, its dependencies are checked against [OSV.dev](https://osv.dev)'s free public database; findings land in Security with the fixed version to upgrade to
+- **Learns what not to flag** — 👍/👎 on any finding; recent 👎s are fed back into future AI reviews as "don't flag patterns like this again"
+- **Custom review config** — an optional `.prismlens.json` in the reviewed repo can ignore paths, override severities, or disable whole categories per-repo
+- **Documentation generation** — ask the chat to document a file or function; same preview-then-confirm-then-commit flow as a fix
 - **Merge PR** — one-click merge from the UI (shown when verdict is APPROVE)
 - **CLI** — terminal reviews with `--json` and `-o file` options
 - **Automated PR-comment responder** — react to new comments on PRs assigned to or authored by you, automatically (see below)
@@ -93,6 +106,31 @@ opencode ships several models on its own `opencode` provider that are free to us
 
 opencode can also talk to any of the ~190 providers it supports (OpenAI, Anthropic, Google, Groq, and the rest) — the same tab's **Providers** section lets you search for one and connect it with an API key. The key goes straight into opencode's own credential store, not PrismLens's; once connected, that provider's models (real pricing shown, never hidden as free) join the picker above. Disconnect a provider the same way, from the chip next to its name.
 
+## Custom Review Config
+
+Drop a `.prismlens.json` at the root of a repo you review to customize how PrismLens treats it — no PrismLens-side setup, it's read straight from the PR's branch on each review:
+
+```json
+{
+  "ignorePaths": ["dist/**", "**/*.generated.ts"],
+  "severityOverrides": { "readability": "low" },
+  "disabledChecks": ["scalability"]
+}
+```
+
+- `ignorePaths` — glob patterns (`*` within a path segment, `**` across segments); matched files are skipped entirely (they still show in the file list, just aren't analyzed).
+- `severityOverrides` / `disabledChecks` — keyed by the same 6 categories the review already groups findings into: `performance`, `security`, `readability`, `bugs`, `scalability`, `best-practices`.
+
+No file, invalid JSON, or an unrecognized shape all just mean "no customization" — never an error.
+
+## Dependency Scanning
+
+If a PR touches `package.json`, PrismLens fetches it from the PR's branch and checks every `dependencies`/`devDependencies` entry against [OSV.dev](https://osv.dev)'s free public vulnerability database (no API key needed). Any hit becomes a `security`-category finding with the CVE/GHSA id, a summary, and the version to upgrade to. npm only for now — other ecosystems (pip, go.mod, ...) aren't wired up yet. A scan failure (OSV unreachable, malformed manifest) never blocks the rest of the review — it's silently skipped.
+
+## Feedback Loop
+
+Every finding has 👍/👎 buttons. This isn't a hosted learning system — there's no database, no retraining — but recent 👎s (stored locally in `.prismlens-feedback.json`) are included in the AI's review prompt as "reviewers marked findings phrased like these unhelpful, don't repeat the pattern." It's a small, local nudge toward less noise over time, not a promise the AI won't ever flag something similar again.
+
 ## API Endpoints
 
 | Method | Path | Description |
@@ -105,3 +143,7 @@ opencode can also talk to any of the ~190 providers it supports (OpenAI, Anthrop
 | POST | `/api/webhooks/github` | Automated PR-comment responder (called by GitHub, not the client) |
 
 Full API reference: [`docs/api.md`](docs/api.md)
+
+## Roadmap
+
+[`docs/roadmap.md`](docs/roadmap.md) documents the outcome of a competitive feature analysis against other AI PR-review tools — what was built this round and, just as importantly, what was deliberately left out and why (multi-provider git, IDE extension, an analytics dashboard, code graphs, a multi-agent architecture).

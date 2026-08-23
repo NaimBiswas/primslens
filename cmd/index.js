@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { Command } from 'commander';
 import { analyzePR } from '../lib/services/analyzer.js';
 import { fetchPR, fetchPRFiles } from '../lib/services/github.js';
+import { loadReviewConfig } from '../lib/services/review-config.js';
 
 const program = new Command();
 
@@ -36,12 +37,13 @@ program
     console.log(`🔍 Fetching PR: ${prUrl}\n`);
 
     try {
-      const [prData, files] = await Promise.all([
+      const [prData, files, config] = await Promise.all([
         fetchPR(prUrl, token),
         fetchPRFiles(prUrl, token),
+        loadReviewConfig(prUrl, token),
       ]);
 
-      const review = await analyzePR(prData, files);
+      const review = await analyzePR(prData, files, config, token);
 
       if (options.json) {
         console.log(JSON.stringify(review, null, 2));

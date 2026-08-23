@@ -26,11 +26,14 @@ Read `.prismlens-review-context.json` from the project root:
       "additions": 10,
       "deletions": 3
     }
-  ]
+  ],
+  "avoidPatternsLike": ["issue text a reviewer previously marked unhelpful", "..."]
 }
 ```
 
 Only files with a non-empty `patch` field have changes to review. Focus on the **added lines** (those starting with `+` in the patch).
+
+If `avoidPatternsLike` is non-empty, it's real feedback from past reviews — reviewers marked findings phrased like these as not worth flagging (👎 in the UI). Don't report a new finding that's essentially the same pattern in the same spirit; use it to calibrate what counts as noise for this project, not as a hard ban on the underlying category.
 
 ## Output
 

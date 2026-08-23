@@ -122,6 +122,14 @@ curl -X POST http://localhost:3000/api/review \
 | 422 | GitHub API validation failure |
 | 500 | Internal server error |
 
+### Notes on findings sources
+
+The `reviews` array (and its per-category breakdowns) can include findings from more than just the AI/regex analysis:
+
+- If the PR touches `package.json`, its dependencies are checked against [OSV.dev](https://osv.dev) and any known vulnerability lands as a `security`-category `BUG` finding with the fixed version to upgrade to (see [Dependency Scanning](../README.md#dependency-scanning)). A scan failure never fails the request — it's silently skipped.
+- If a repo the PR belongs to has a `.prismlens.json` at its root, findings respect it: paths matching `ignorePaths` are never analyzed, `severityOverrides` rewrite a category's severity, and `disabledChecks` drops a category entirely (see [Custom Review Config](../README.md#custom-review-config)).
+- A `best-practices` `CONCERN` is added when the PR adds a substantial amount of new code (15+ lines across non-test files) without touching any test file itself.
+
 ---
 
 ## `POST /api/review/preview`
@@ -205,6 +213,89 @@ curl -X POST http://localhost:3000/api/review/merge \
   "merged": true,
   "message": "Pull request successfully merged"
 }
+```
+
+---
+
+## `POST /api/review/describe`
+
+Replaces the PR's description with a summary generated from the review: what changed (file-by-file, verb per file — Add/Remove/Rename/Update), and a review snapshot (per-category finding counts + verdict).
+
+### Request
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `prUrl` | string | Yes | Full GitHub PR URL |
+| `token` | string | Yes | GitHub personal access token (write access) |
+| `review` | object | Yes | Full review object from `/api/review` response |
+
+```bash
+curl -X POST http://localhost:3000/api/review/describe \
+  -H "Content-Type: application/json" \
+  -d '{"prUrl": "...", "token": "ghp_xxx", "review": { ... }}'
+```
+
+### Response
+
+```json
+{
+  "html_url": "https://github.com/user/repo/pull/17",
+  "message": "PR description updated"
+}
+```
+
+This overwrites the existing PR body entirely — there's no merge with prior description content.
+
+---
+
+## `POST /api/review/label`
+
+Derives and applies `size/*` and `risk/*` labels from the review. Size (`size/xs`..`size/xl`) is based on total lines changed; risk (`risk/low`/`risk/medium`/`risk/high`) is based on critical/high bug counts and the verdict. Labels are created on the repo first if they don't already exist (a pre-existing label with the same name is left as-is — `422` from GitHub is swallowed).
+
+### Request
+
+Same body as `/api/review/describe`.
+
+```bash
+curl -X POST http://localhost:3000/api/review/label \
+  -H "Content-Type: application/json" \
+  -d '{"prUrl": "...", "token": "ghp_xxx", "review": { ... }}'
+```
+
+### Response
+
+```json
+{
+  "labels": ["size/m", "risk/low"]
+}
+```
+
+---
+
+## `POST /api/feedback`
+
+Records a 👍/👎 on a single finding. Feedback is stored locally (`.prismlens-feedback.json`, gitignored) and recent 👎s are fed back into the AI's prompt on future reviews as patterns to avoid re-flagging — see [Feedback Loop](../README.md#feedback-loop).
+
+### Request
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `prUrl` | string | Yes | The PR the finding came from |
+| `issue` | string | Yes | The finding's `issue` text |
+| `category` | string | Yes | The finding's category |
+| `severity` | string | Yes | The finding's severity |
+| `vote` | string | Yes | `"up"` or `"down"` |
+
+```bash
+curl -X POST http://localhost:3000/api/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"prUrl": "...", "issue": "Nested loop detected in file.js", "category": "performance", "severity": "high", "vote": "down"}'
+```
+
+### Response
+
+```json
+{ "recorded": true }
 ```
 
 ---

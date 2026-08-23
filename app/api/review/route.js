@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchPR, fetchPRFiles } from '../../../lib/services/github.js';
 import { analyzePR } from '../../../lib/services/analyzer.js';
+import { loadReviewConfig } from '../../../lib/services/review-config.js';
 import { githubErrorResponse } from '../../../lib/api-error.js';
 
 export const runtime = 'nodejs';
@@ -17,12 +18,13 @@ export async function POST(req) {
   if (!token) return NextResponse.json({ error: 'GitHub token is required' }, { status: 400 });
 
   try {
-    const [prData, files] = await Promise.all([
+    const [prData, files, config] = await Promise.all([
       fetchPR(prUrl, token),
       fetchPRFiles(prUrl, token),
+      loadReviewConfig(prUrl, token),
     ]);
 
-    const review = await analyzePR(prData, files);
+    const review = await analyzePR(prData, files, config, token);
     return NextResponse.json(review);
   } catch (err) {
     const { status, msg } = githubErrorResponse(err);

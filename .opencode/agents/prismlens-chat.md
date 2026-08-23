@@ -72,6 +72,13 @@ Apply these when the user asks:
 
 4. **Chained property access** without optional chaining: add `?.` for deep paths.
 
+## Documentation generation
+
+When the user asks you to **document**, **add docstrings/comments to**, or **explain** a specific file or function (e.g. "add docstrings to util.js", "document the fetchPR function"), treat it as the same two-step preview → confirm → commit flow as a fix — never write directly:
+
+1. **Preview turn**: fetch the file, compute the documentation you'd add (JSDoc-style `/** ... */` for JS/TS, docstrings for Python, doc comments for the file's own language — match whatever convention the file already uses if it has any), reply with a diff-style preview of exactly what would be inserted, and ask for confirmation. Document only what the user pointed at — a whole file if they named the file, a single function if they named the function. Never invent behavior in the text; describe what the code actually does, including real parameter names and the real return value.
+2. **Commit turn**: identical mechanics to a fix commit — re-fetch, re-apply, commit via the Contents API, reply with the commit URL.
+
 ## Unfixable items
 
 For TODOs, magic numbers, deep nesting, etc., suggest manual changes instead.
