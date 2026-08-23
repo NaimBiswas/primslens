@@ -392,6 +392,122 @@
   border: 1px solid rgba(5, 217, 232, 0.25);
 }
 
+/* ─── Providers ─────────────────────────────────────────── */
+
+.connectedList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.connectedChip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.5rem 0.45rem 0.8rem;
+  background: rgba(0, 255, 163, 0.06);
+  border: 1px solid rgba(0, 255, 163, 0.2);
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  color: var(--text-primary);
+}
+
+.disconnectBtn {
+  border: none;
+  background: rgba(255, 77, 77, 0.12);
+  color: var(--neon-red);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.disconnectBtn:hover {
+  background: rgba(255, 77, 77, 0.22);
+}
+
+.disconnectBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.providerSearch {
+  width: 100%;
+}
+
+.providerList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.providerRow {
+  padding: 0.75rem 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+}
+
+.providerRowHead {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.providerInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.providerName {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.providerMeta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.providerMeta a {
+  color: var(--neon-blue);
+  text-decoration: none;
+}
+
+.providerMeta a:hover {
+  text-decoration: underline;
+}
+
+.connectForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--glass-border);
+}
+
+.connectForm input {
+  flex: 1 1 220px;
+}
+
+.connectHint {
+  width: 100%;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
 /* ─── Responsive ───────────────────────────────────────── */
 
 @media (max-width: 720px) {

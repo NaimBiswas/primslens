@@ -49,6 +49,8 @@ curl -X POST http://localhost:3000/api/review \
     "prNumber": 17,
     "repo": "user/repo",
     "branch": "feature/order-change",
+    "state": "Open",
+    "assignees": ["NaimBiswas"],
     "stats": { "additions": 245, "deletions": 53, "filesChanged": 6 }
   },
   "reviews": [
@@ -91,7 +93,7 @@ curl -X POST http://localhost:3000/api/review \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `meta` | object | PR metadata (title, author, stats) |
+| `meta` | object | PR metadata (title, author, state, assignees, stats) |
 | `reviews` | array | Flat list of all findings |
 | `strengths` | array | Findings with type STRENGTH |
 | `concerns` | array | Findings with type CONCERN |
@@ -304,6 +306,44 @@ Sets the model used for future `/api/review` and `/api/chat` runs (and the webho
 ```
 
 Pass `{ "model": null }` to clear the override and go back to opencode's own default. Any other value must match an `id` from `GET /api/model`'s list — `400` otherwise.
+
+`GET /api/model`'s list now includes models from every provider connected via `/api/providers` below, not just opencode's free ones — each entry carries `cost` and `free` so paid models are never presented as if they were free.
+
+---
+
+## `GET /api/providers`
+
+Every provider opencode/models.dev knows about (~190) — name, required env var(s), docs link, model count, and whether a credential is already configured. Slim payload, no per-model detail.
+
+### Response
+
+```json
+{
+  "providers": [
+    { "id": "openai", "name": "OpenAI", "envVars": ["OPENAI_API_KEY"], "doc": "https://platform.openai.com/docs/models", "modelCount": 47, "configured": false }
+  ]
+}
+```
+
+## `POST /api/providers`
+
+Saves an API key for a provider — to opencode's own credential store (`~/.local/share/opencode/auth.json`), the same file `opencode providers login` writes to. Never echoed back in any response.
+
+### Request
+
+```json
+{ "providerId": "openai", "apiKey": "sk-..." }
+```
+
+## `DELETE /api/providers`
+
+Removes a provider's credential. If the currently selected model (`GET /api/model`) belonged to that provider, the selection is reset to opencode's default too, so nothing is left pointing at a now-unusable model.
+
+### Request
+
+```json
+{ "providerId": "openai" }
+```
 
 ---
 

@@ -20,11 +20,12 @@ prismlens/
 │       ├── health/route.js             # GET /api/health
 │       ├── automation/status/route.js  # GET /api/automation/status
 │       ├── model/route.js              # GET/POST /api/model
+│       ├── providers/route.js          # GET/POST/DELETE /api/providers
 │       └── webhooks/github/route.js    # POST /api/webhooks/github — automated PR-comment responder
 ├── components/
 │   ├── CodeReviewPanel.jsx  # Dashboard's "Code Review" tab
 │   ├── AutomationPanel.jsx  # Dashboard's "Automation" tab
-│   ├── ModelPanel.jsx       # Dashboard's "Model" tab
+│   ├── ModelPanel.jsx       # Dashboard's "Model" tab (models + provider connections)
 │   └── ChatPanel.jsx
 ├── lib/
 │   ├── api-client.js       # fetch wrapper used by the UI
@@ -33,7 +34,8 @@ prismlens/
 │       ├── github.js       # GitHub API (fetch, post review, merge, reply)
 │       ├── analyzer.js     # 6-dimension per-file review engine
 │       ├── automation.js   # webhook → analyze comment → reply pipeline
-│       └── models.js       # lists opencode's free models
+│       ├── models.js       # lists opencode's free models + connected-provider models
+│       └── providers.js    # models.dev catalog + opencode's credential store
 ├── cmd/index.js            # CLI tool (imports analyzer directly)
 ├── docs/                   # Architecture + API docs
 └── package.json
@@ -63,6 +65,8 @@ npm run review https://github.com/user/repo/pull/17
 - **CLI** — terminal reviews with `--json` and `-o file` options
 - **Automated PR-comment responder** — react to new comments on PRs assigned to or authored by you, automatically (see below)
 - **Free model picker** — choose which of opencode's own free models (no API key, no cost) powers review and chat, from the dashboard's Model tab
+- **Bring your own provider** — connect any opencode-supported provider (OpenAI, Anthropic, Google, ~190 more) with an API key and pick from its models too, same tab
+- **PR status at a glance** — status (open/merged/closed/draft) and assignees shown right in the results view
 
 ## Automation
 
@@ -86,6 +90,8 @@ PrismLens reacts to a comment only when the PR is assigned to, or authored by, t
 ## Model Selection
 
 opencode ships several models on its own `opencode` provider that are free to use — no API key, no cost. The dashboard's **Model tab** lists them and lets you pick one; the choice applies to every review, chat, and automated reply from then on, and persists across restarts. Leaving it on "opencode default" uses whatever opencode itself is configured to default to.
+
+opencode can also talk to any of the ~190 providers it supports (OpenAI, Anthropic, Google, Groq, and the rest) — the same tab's **Providers** section lets you search for one and connect it with an API key. The key goes straight into opencode's own credential store, not PrismLens's; once connected, that provider's models (real pricing shown, never hidden as free) join the picker above. Disconnect a provider the same way, from the chip next to its name.
 
 ## API Endpoints
 

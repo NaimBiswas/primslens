@@ -49,6 +49,12 @@ const TYPE_LABELS = {
   INFO: 'Info',
 };
 
+function statusClass(state) {
+  if (state === 'Merged') return 'green';
+  if (state === 'Closed') return 'red';
+  return '';
+}
+
 export default function CodeReviewPanel() {
   const [prUrl, setPrUrl] = useState('');
   const [token, setToken] = useState('');
@@ -224,6 +230,8 @@ const handleSubmit = async (e) => {
               {[
                 { label: 'Title', value: result.meta?.prTitle, cls: '' },
                 { label: 'Author', value: result.meta?.prAuthor, cls: '' },
+                { label: 'Status', value: result.meta?.state, cls: statusClass(result.meta?.state) },
+                { label: 'Assigned To', value: (result.meta?.assignees ?? []).join(', ') || 'Unassigned', cls: '' },
                 { label: 'Files', value: result.meta?.stats?.filesChanged, cls: '' },
                 { label: 'Added', value: `+${result.meta?.stats?.additions}`, cls: 'green' },
                 { label: 'Deleted', value: `-${result.meta?.stats?.deletions}`, cls: 'red' },

@@ -20,6 +20,7 @@ prismlens/
 │       ├── health/route.js          # GET /api/health
 │       ├── automation/status/route.js # GET /api/automation/status — for the Automation dashboard tab
 │       ├── model/route.js           # GET/POST /api/model — for the Model dashboard tab
+│       ├── providers/route.js       # GET/POST/DELETE /api/providers — connect other opencode providers
 │       └── webhooks/github/route.js # POST /api/webhooks/github — automated PR-comment responder
 ├── components/
 │   ├── CodeReviewPanel.jsx          # The review tool itself (dashboard's "Code Review" tab), "use client"
@@ -36,8 +37,9 @@ prismlens/
 │       ├── analyzer.js              # 6-dimension per-file review engine
 │       ├── chat.js                  # opencode-backed chat, spawns opencode CLI
 │       ├── automation.js            # webhook → analyze comment → reply pipeline
-│       ├── models.js                # lists opencode's free models
+│       ├── models.js                # lists opencode's free models + models from connected providers
 │       ├── model-config.js          # persists the selected model (.prismlens-config.json)
+│       ├── providers.js             # models.dev catalog + opencode's auth.json (connect/disconnect providers)
 │       └── shared.js                # locates the opencode binary
 ├── cmd/
 │   └── index.js                     # CLI — imports lib/services/analyzer.js directly, supports --json, -o file
@@ -66,7 +68,7 @@ One Next.js process serves both the UI (`app/page.jsx`) and the JSON API (`app/a
 - **Next.js App Router**, cyberpunk glassmorphism UI. `/` is a marketing landing page; `/code-review` is a dashboard — a left sidebar (Code Review / Automation) plus the active panel, client-rendered tab state
 - **Code Review tab** (`CodeReviewPanel.jsx`): the original tool, form → results view, unchanged behavior
 - **Automation tab** (`AutomationPanel.jsx`): status/config view for the webhook responder below — env-var status, the webhook URL to register, setup steps, and a recent-activity feed
-- **Model tab** (`ModelPanel.jsx`): pick which of opencode's free models (cost 0, no API key) `analyzer.js`/`chat.js` spawn opencode with — or leave it on opencode's own default
+- **Model tab** (`ModelPanel.jsx`): pick which model `analyzer.js`/`chat.js` spawn opencode with — opencode's own free models always, plus models from any provider connected in the Providers section on the same tab (paid providers show real per-1M-token pricing, never hidden as if free)
 - Input form for PR URL and GitHub token
 - Displays review results grouped by 6 categories (Performance, Security, Readability, Bugs, Scalability, Best Practices)
 - Shows severity badges (critical/high/medium/low) and type badges (Bug/Concern/Strength/Info)
@@ -193,6 +195,7 @@ Formatting the review as a GitHub PR review comment:
 - No database — all processing is ephemeral
 - Token stored in `localStorage` (not cookies) on the client
 - The webhook path is the one exception to "token never stored server-side": `GITHUB_TOKEN` in `.env` authorizes `/api/webhooks/github`'s automated replies, since there's no browser session to supply a per-request token. Every delivery is HMAC-verified (`X-Hub-Signature-256` against `GITHUB_WEBHOOK_SECRET`) before anything else runs, and the endpoint 501s outright if either env var is unset
+- Provider API keys entered in the Model tab go straight to opencode's own credential store (`~/.local/share/opencode/auth.json`) — the same file `opencode providers login` writes to — never through PrismLens's own storage, `.env`, or logs, and never echoed back in an API response
 
 ## Key Design Decisions
 
