@@ -221,6 +221,109 @@
   color: var(--text-secondary);
 }
 
+/* ─── How-it-works step flow ──────────────────────────── */
+
+.stepRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.stepItem {
+  position: relative;
+  flex: 1 1 200px;
+  max-width: 240px;
+  padding: 0 1.2rem;
+  text-align: center;
+}
+
+.stepNum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--neon-blue);
+  opacity: 0.7;
+  margin-bottom: 0.5rem;
+}
+
+.stepLabel {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.5rem;
+}
+
+.stepDesc {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.stepArrow {
+  display: none;
+  position: absolute;
+  top: 0.1rem;
+  right: -0.6rem;
+  color: var(--glass-border);
+  font-size: 1.1rem;
+}
+
+@media (min-width: 720px) {
+  .stepArrow { display: block; }
+}
+
+/* ─── Verdict logic ────────────────────────────────────── */
+
+.verdictGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.verdictCard {
+  margin-top: 0 !important;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.verdictCard:hover {
+  transform: translateY(-3px);
+}
+
+/* ─── AI / fallback comparison ────────────────────────── */
+
+.modeCompare {
+  max-width: 680px;
+  margin: 0 auto 2rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.modeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem 1.2rem;
+  padding: 1.2rem 1.4rem;
+}
+
+.modeRow + .modeRow {
+  border-top: 1px solid var(--glass-border);
+}
+
+.modeBadge {
+  flex-shrink: 0;
+}
+
+.modeDesc {
+  flex: 1 1 320px;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
 /* ─── Chat-to-fix demo ─────────────────────────────────── */
 
 .chatDemo {

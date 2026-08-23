@@ -16,6 +16,19 @@ const DIMENSIONS = [
   { icon: '✅', label: 'Best Practices', desc: 'Deprecated APIs, missing input validation, unguarded state mutation.' },
 ];
 
+const STEPS = [
+  { n: '01', label: 'Paste a PR', desc: 'A GitHub PR URL and a token — nothing else to configure.' },
+  { n: '02', label: 'Fetch the diff', desc: 'PrismLens pulls the real file changes straight from the GitHub API.' },
+  { n: '03', label: 'Six-angle scan', desc: 'Every changed file checked for all 6 dimensions, not just the obvious ones.' },
+  { n: '04', label: 'Verdict + actions', desc: 'APPROVE, REVIEW, or REJECT — then comment, approve, or merge directly.' },
+];
+
+const VERDICTS = [
+  { verdict: 'REJECT', cls: 'reject', rule: '1 or more critical-severity bug.' },
+  { verdict: 'REVIEW', cls: 'review', rule: 'A high-severity bug, or more than 3 concerns.' },
+  { verdict: 'APPROVE', cls: 'approve', rule: 'No critical issues found. Ready to merge.' },
+];
+
 export default function LandingPage() {
   return (
     <>
@@ -82,6 +95,20 @@ export default function LandingPage() {
       </section>
 
       <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>From PR link to verdict.</h2>
+        <div className={styles.stepRow}>
+          {STEPS.map((s, i) => (
+            <div className={styles.stepItem} key={s.n}>
+              <div className={styles.stepNum}>{s.n}</div>
+              <div className={styles.stepLabel}>{s.label}</div>
+              <p className={styles.stepDesc}>{s.desc}</p>
+              {i < STEPS.length - 1 && <span className={styles.stepArrow} aria-hidden="true">→</span>}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.section}>
         <Reveal>
           <h2 className={styles.sectionHeading}>One diff. Six angles of scrutiny.</h2>
         </Reveal>
@@ -94,6 +121,18 @@ export default function LandingPage() {
                 <p className={styles.dimDesc}>{d.desc}</p>
               </div>
             </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>The verdict logic is fixed, not vibes.</h2>
+        <div className={styles.verdictGrid}>
+          {VERDICTS.map((v) => (
+            <div className={`${styles.verdictCard} recommendation-box ${v.cls}`} key={v.verdict}>
+              <h3>{v.verdict}</h3>
+              <p>{v.rule}</p>
+            </div>
           ))}
         </div>
       </section>
@@ -139,6 +178,23 @@ export default function LandingPage() {
       </section>
 
       <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>AI-powered when it can be. Deterministic when it can&rsquo;t.</h2>
+        <div className={styles.modeCompare}>
+          <div className={styles.modeRow}>
+            <span className={`${styles.modeBadge} mode-badge mode-ai`}>AI ANALYSIS</span>
+            <p className={styles.modeDesc}>
+              When <code className="chat-inline-code">opencode</code> is available, PrismLens reads the diff in context
+              and reasons about each finding like a reviewer would.
+            </p>
+          </div>
+          <div className={styles.modeRow}>
+            <span className={`${styles.modeBadge} mode-badge mode-fallback`}>REGEX FALLBACK</span>
+            <p className={styles.modeDesc}>
+              No AI installed? Same 6 dimensions, same verdict logic, running on a deterministic
+              analyzer — nothing to configure, nothing that can time out.
+            </p>
+          </div>
+        </div>
         <p className={styles.cliLead}>Prefer the terminal? Same analyzer, same 6 dimensions.</p>
         <div className={styles.cliStrip}>
           <span className={styles.cliPrompt}>npm run review https://github.com/org/repo/pull/42</span>
