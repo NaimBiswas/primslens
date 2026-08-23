@@ -6,24 +6,30 @@
 prismlens/
 ├── app/                             # Next.js (App Router) — UI + API, one process on :3000
 │   ├── layout.jsx                   # Google Fonts, metadata (title/icons/manifest)
-│   ├── page.jsx                     # Form → results → actions (post/merge), "use client"
+│   ├── page.jsx                     # Landing page ("/")
 │   ├── globals.css                  # Glassmorphism with neon palette
+│   ├── landing.module.css           # Landing-page-specific styles
+│   ├── code-review/page.jsx         # The review tool itself ("/code-review"), "use client"
 │   └── api/
 │       ├── review/route.js          # POST /api/review
 │       ├── review/preview/route.js  # POST /api/review/preview
 │       ├── review/post/route.js     # POST /api/review/post
 │       ├── review/merge/route.js    # POST /api/review/merge
 │       ├── chat/route.js            # POST /api/chat
-│       └── health/route.js          # GET /api/health
+│       ├── health/route.js          # GET /api/health
+│       └── webhooks/github/route.js # POST /api/webhooks/github — automated PR-comment responder
 ├── components/
-│   └── ChatPanel.jsx                # Chat overlay, "use client"
+│   ├── ChatPanel.jsx                # Chat overlay, "use client"
+│   └── Reveal.jsx                   # Scroll-reveal utility, "use client"
 ├── lib/
 │   ├── api-client.js                # reviewPR, postReviewToPR, mergePR (fetch wrapper)
 │   ├── api-error.js                 # shared GitHub-error → HTTP-status mapping
+│   ├── webhook-verify.js            # GitHub webhook signature verification + event filtering
 │   └── services/
-│       ├── github.js                # fetchPR, fetchPRFiles, postPRReview, mergePR
+│       ├── github.js                # fetchPR, fetchPRFiles, postPRReview, mergePR, reply/comment helpers
 │       ├── analyzer.js              # 6-dimension per-file review engine
 │       ├── chat.js                  # opencode-backed chat, spawns opencode CLI
+│       ├── automation.js            # webhook → analyze comment → reply pipeline
 │       └── shared.js                # locates the opencode binary
 ├── cmd/
 │   └── index.js                     # CLI — imports lib/services/analyzer.js directly, supports --json, -o file
@@ -49,7 +55,7 @@ prismlens/
 One Next.js process serves both the UI (`app/page.jsx`) and the JSON API (`app/api/**/route.js`) from the same origin on port 3000 — no separate dev server, no `/api` proxy.
 
 ### 1. UI (`app/`, `components/`)
-- **Next.js App Router**, cyberpunk glassmorphism UI, single client-rendered view (no routing needed — one form → results screen)
+- **Next.js App Router**, cyberpunk glassmorphism UI. `/` is a marketing landing page; `/code-review` is the actual tool (a single client-rendered form → results view)
 - Input form for PR URL and GitHub token
 - Displays review results grouped by 6 categories (Performance, Security, Readability, Bugs, Scalability, Best Practices)
 - Shows severity badges (critical/high/medium/low) and type badges (Bug/Concern/Strength/Info)
@@ -68,6 +74,14 @@ One Next.js process serves both the UI (`app/page.jsx`) and the JSON API (`app/a
 - **Node.js terminal tool** using `commander`
 - Imports `analyzePR` from `lib/services/analyzer.js` directly (no HTTP call, doesn't need the Next.js server running)
 - Options: `--json` (raw JSON), `-o <file>` (markdown report export)
+
+### 4. Automation (`app/api/webhooks/github/`, `lib/services/automation.js`)
+- GitHub calls `POST /api/webhooks/github` directly once a webhook is registered on a repo — this endpoint is not used by the client
+- `lib/webhook-verify.js` checks the `X-Hub-Signature-256` HMAC before anything else runs, and filters events down to `created` PR comments (general or inline)
+- The route ACKs `200` immediately, then runs the actual work in Next's `after()` — a full opencode turn can take minutes, far longer than a webhook delivery timeout tolerates
+- `lib/services/automation.js` resolves the token owner's identity (`GET /user`), guards against replying to its own comments (the loop-prevention check), confirms the PR is assigned to or authored by that identity, runs the same `fetchPR` → `fetchPRFiles` → `analyzePR` pipeline the interactive UI uses, then feeds the comment through the same `prismlens-chat` agent `lib/services/chat.js` already spawns
+- **Propose-only**: the agent's own preview → confirm → commit workflow (see `.opencode/agents/prismlens-chat.md`) means the automated reply is always analysis or a fix preview — it never commits without an explicit human confirmation, and this build doesn't wire up that confirmation step at all
+- Uses `GITHUB_TOKEN` server-side (unlike the interactive UI, which never stores a token) — see `docs/api.md` for the env vars and webhook registration steps
 - Output grouped by the 6 categories with severity breakdown
 
 ## Analysis Pipeline
@@ -166,6 +180,7 @@ Formatting the review as a GitHub PR review comment:
 - Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) set in `next.config.js`, no CSP (matches the prior Helmet config, which also left CSP disabled)
 - No database — all processing is ephemeral
 - Token stored in `localStorage` (not cookies) on the client
+- The webhook path is the one exception to "token never stored server-side": `GITHUB_TOKEN` in `.env` authorizes `/api/webhooks/github`'s automated replies, since there's no browser session to supply a per-request token. Every delivery is HMAC-verified (`X-Hub-Signature-256` against `GITHUB_WEBHOOK_SECRET`) before anything else runs, and the endpoint 501s outright if either env var is unset
 
 ## Key Design Decisions
 

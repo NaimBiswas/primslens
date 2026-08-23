@@ -222,11 +222,43 @@ Server health check.
 
 ---
 
+## `POST /api/webhooks/github`
+
+Receives GitHub webhook deliveries for automated PR-comment responses. Not called by the client — GitHub calls this directly once a webhook is registered on a repo (Settings → Webhooks → Add webhook), subscribed to the **Issue comments** and **Pull request review comments** events.
+
+Requires `GITHUB_TOKEN` and `GITHUB_WEBHOOK_SECRET` to be set server-side (see below); otherwise every delivery is rejected with `501` before any processing.
+
+For a `created` comment on a PR assigned to or authored by the `GITHUB_TOKEN` owner, PrismLens runs the same analysis + chat pipeline the interactive UI uses and replies on the PR — a fix preview if the comment implies a code change, a direct answer otherwise. It never commits on its own.
+
+### Request
+
+Sent by GitHub, not something you call directly. Key headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-GitHub-Event` | `issue_comment` or `pull_request_review_comment` — anything else is a no-op |
+| `X-Hub-Signature-256` | `sha256=<hmac>` of the raw body, keyed with `GITHUB_WEBHOOK_SECRET` |
+| `X-GitHub-Delivery` | Unique delivery ID, used to ignore GitHub's occasional redeliveries |
+
+### Response
+
+| Status | Meaning |
+|--------|---------|
+| 200 | Accepted — acknowledged immediately; the actual analysis (which can take minutes) runs after the response is sent |
+| 400 | Malformed JSON body |
+| 401 | Missing or invalid `X-Hub-Signature-256` |
+| 501 | `GITHUB_TOKEN` or `GITHUB_WEBHOOK_SECRET` not configured |
+
+A `200` with `{ "skipped": "<reason>" }` means the event was received but wasn't relevant (not a PR comment, not a `created` action, or the PR isn't assigned to/authored by the token owner) — this is normal, not an error.
+
+---
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `GITHUB_TOKEN` | No | — | Default token for server-side use |
+| `GITHUB_TOKEN` | For CLI and automation | — | Used by the CLI, and by `/api/webhooks/github` to act on your behalf. The web UI is unaffected — it still takes a token per request. |
+| `GITHUB_WEBHOOK_SECRET` | For automation only | — | Shared secret configured when registering the webhook on GitHub; verifies deliveries actually came from GitHub. |
 | `PORT` | No | 3000 | Server port |
 
 ---

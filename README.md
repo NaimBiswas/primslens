@@ -8,21 +8,25 @@ Analyzes every changed file across 6 dimensions: performance, security, readabil
 ```
 prismlens/
 ├── app/                    # Next.js (App Router) — UI + API, same origin
-│   ├── page.jsx            # Cyberpunk UI with category review display
+│   ├── page.jsx            # Landing page ("/")
+│   ├── code-review/page.jsx # The review tool ("/code-review")
 │   ├── layout.jsx
 │   └── api/
-│       ├── review/route.js         # POST /api/review
-│       ├── review/preview/route.js # POST /api/review/preview
-│       ├── review/post/route.js    # POST /api/review/post
-│       ├── review/merge/route.js   # POST /api/review/merge
-│       ├── chat/route.js           # POST /api/chat
-│       └── health/route.js         # GET /api/health
+│       ├── review/route.js          # POST /api/review
+│       ├── review/preview/route.js  # POST /api/review/preview
+│       ├── review/post/route.js     # POST /api/review/post
+│       ├── review/merge/route.js    # POST /api/review/merge
+│       ├── chat/route.js            # POST /api/chat
+│       ├── health/route.js          # GET /api/health
+│       └── webhooks/github/route.js # POST /api/webhooks/github — automated PR-comment responder
 ├── components/ChatPanel.jsx
 ├── lib/
 │   ├── api-client.js       # fetch wrapper used by the UI
+│   ├── webhook-verify.js   # GitHub webhook signature verification
 │   └── services/
-│       ├── github.js       # GitHub API (fetch, post review, merge)
-│       └── analyzer.js     # 6-dimension per-file review engine
+│       ├── github.js       # GitHub API (fetch, post review, merge, reply)
+│       ├── analyzer.js     # 6-dimension per-file review engine
+│       └── automation.js   # webhook → analyze comment → reply pipeline
 ├── cmd/index.js            # CLI tool (imports analyzer directly)
 ├── docs/                   # Architecture + API docs
 └── package.json
@@ -50,6 +54,24 @@ npm run review https://github.com/user/repo/pull/17
 - **Post to PR** — submit the review as a GitHub PR review comment (professional format with performance suggestions)
 - **Merge PR** — one-click merge from the UI (shown when verdict is APPROVE)
 - **CLI** — terminal reviews with `--json` and `-o file` options
+- **Automated PR-comment responder** — react to new comments on PRs assigned to or authored by you, automatically (see below)
+
+## Automation
+
+Once configured, PrismLens can watch your PRs and respond to new comments on its own — no need to open the app. It always **proposes**, never commits on its own: a fix preview when the comment implies a code change, a direct answer otherwise.
+
+1. Set two env vars (in addition to `GITHUB_TOKEN`, which the automation reuses):
+   ```bash
+   GITHUB_WEBHOOK_SECRET=<a secret you make up>
+   ```
+2. Get `/api/webhooks/github` reachable from the internet — deploy PrismLens somewhere public, or run a tunnel (e.g. `ngrok http 3000`) for local testing.
+3. On each repo you want watched: **Settings → Webhooks → Add webhook**
+   - Payload URL: `https://<your-host>/api/webhooks/github`
+   - Content type: `application/json`
+   - Secret: the same value as `GITHUB_WEBHOOK_SECRET`
+   - Events: **Issue comments** and **Pull request review comments**
+
+PrismLens reacts to a comment only when the PR is assigned to, or authored by, the account `GITHUB_TOKEN` belongs to — and it always ignores comments it posted itself, so it never replies to its own replies.
 
 ## API Endpoints
 
@@ -60,5 +82,6 @@ npm run review https://github.com/user/repo/pull/17
 | POST | `/api/review/post` | Post review as GitHub comment |
 | POST | `/api/review/merge` | Merge the pull request |
 | GET | `/api/health` | Server health check |
+| POST | `/api/webhooks/github` | Automated PR-comment responder (called by GitHub, not the client) |
 
 Full API reference: [`docs/api.md`](docs/api.md)
