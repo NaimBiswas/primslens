@@ -9,7 +9,8 @@ prismlens/
 │   ├── page.jsx                     # Landing page ("/")
 │   ├── globals.css                  # Glassmorphism with neon palette
 │   ├── landing.module.css           # Landing-page-specific styles
-│   ├── code-review/page.jsx         # The review tool itself ("/code-review"), "use client"
+│   ├── code-review/page.jsx         # Dashboard shell ("/code-review") — sidebar + tab switch, "use client"
+│   ├── code-review/dashboard.module.css # Sidebar/status/activity styles, shared by the shell and AutomationPanel
 │   └── api/
 │       ├── review/route.js          # POST /api/review
 │       ├── review/preview/route.js  # POST /api/review/preview
@@ -17,8 +18,11 @@ prismlens/
 │       ├── review/merge/route.js    # POST /api/review/merge
 │       ├── chat/route.js            # POST /api/chat
 │       ├── health/route.js          # GET /api/health
+│       ├── automation/status/route.js # GET /api/automation/status — for the Automation dashboard tab
 │       └── webhooks/github/route.js # POST /api/webhooks/github — automated PR-comment responder
 ├── components/
+│   ├── CodeReviewPanel.jsx          # The review tool itself (dashboard's "Code Review" tab), "use client"
+│   ├── AutomationPanel.jsx          # Automation status/config/activity (dashboard's "Automation" tab), "use client"
 │   ├── ChatPanel.jsx                # Chat overlay, "use client"
 │   └── Reveal.jsx                   # Scroll-reveal utility, "use client"
 ├── lib/
@@ -55,7 +59,9 @@ prismlens/
 One Next.js process serves both the UI (`app/page.jsx`) and the JSON API (`app/api/**/route.js`) from the same origin on port 3000 — no separate dev server, no `/api` proxy.
 
 ### 1. UI (`app/`, `components/`)
-- **Next.js App Router**, cyberpunk glassmorphism UI. `/` is a marketing landing page; `/code-review` is the actual tool (a single client-rendered form → results view)
+- **Next.js App Router**, cyberpunk glassmorphism UI. `/` is a marketing landing page; `/code-review` is a dashboard — a left sidebar (Code Review / Automation) plus the active panel, client-rendered tab state
+- **Code Review tab** (`CodeReviewPanel.jsx`): the original tool, form → results view, unchanged behavior
+- **Automation tab** (`AutomationPanel.jsx`): status/config view for the webhook responder below — env-var status, the webhook URL to register, setup steps, and a recent-activity feed
 - Input form for PR URL and GitHub token
 - Displays review results grouped by 6 categories (Performance, Security, Readability, Bugs, Scalability, Best Practices)
 - Shows severity badges (critical/high/medium/low) and type badges (Bug/Concern/Strength/Info)
@@ -75,7 +81,8 @@ One Next.js process serves both the UI (`app/page.jsx`) and the JSON API (`app/a
 - Imports `analyzePR` from `lib/services/analyzer.js` directly (no HTTP call, doesn't need the Next.js server running)
 - Options: `--json` (raw JSON), `-o <file>` (markdown report export)
 
-### 4. Automation (`app/api/webhooks/github/`, `lib/services/automation.js`)
+### 4. Automation (`app/api/webhooks/github/`, `app/api/automation/status/`, `lib/services/automation.js`)
+- The dashboard's Automation tab (`AutomationPanel.jsx`) reads `GET /api/automation/status` for a live snapshot: whether `GITHUB_TOKEN`/`GITHUB_WEBHOOK_SECRET` are set, the resolved bot login, the webhook URL to register, and the last 20 entries from an in-memory activity log — never the secret values themselves
 - GitHub calls `POST /api/webhooks/github` directly once a webhook is registered on a repo — this endpoint is not used by the client
 - `lib/webhook-verify.js` checks the `X-Hub-Signature-256` HMAC before anything else runs, and filters events down to `created` PR comments (general or inline)
 - The route ACKs `200` immediately, then runs the actual work in Next's `after()` — a full opencode turn can take minutes, far longer than a webhook delivery timeout tolerates

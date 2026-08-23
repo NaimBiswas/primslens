@@ -253,6 +253,28 @@ A `200` with `{ "skipped": "<reason>" }` means the event was received but wasn't
 
 ---
 
+## `GET /api/automation/status`
+
+Configuration + recent-activity snapshot for the Automation tab in the dashboard (`/code-review`). Never returns the token or webhook secret values — booleans only, plus the public GitHub login they resolve to.
+
+### Response
+
+```json
+{
+  "tokenConfigured": true,
+  "webhookSecretConfigured": false,
+  "botLogin": "octocat",
+  "recentActivity": [
+    { "at": "2026-08-24T10:00:00.000Z", "prUrl": "https://github.com/o/r/pull/1", "eventType": "issue_comment", "outcome": "replied", "prTitle": "Fix rate limiter" }
+  ],
+  "webhookUrl": "https://your-host/api/webhooks/github"
+}
+```
+
+`recentActivity[].outcome` is one of `replied`, `skipped` (with a `reason`), or `error` (with a `reason`).
+
+---
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
