@@ -7,16 +7,24 @@ Analyzes every changed file across 6 dimensions: performance, security, readabil
 
 ```
 prismlens/
-├── client/                # React + Vite SPA
-│   ├── src/App.jsx        # Cyberpunk UI with category review display
-│   └── src/services/api.js
-├── server/                # Express API (port 3000)
-│   ├── routes/review.js   # /review, /review/post, /review/merge, /health
+├── app/                    # Next.js (App Router) — UI + API, same origin
+│   ├── page.jsx            # Cyberpunk UI with category review display
+│   ├── layout.jsx
+│   └── api/
+│       ├── review/route.js         # POST /api/review
+│       ├── review/preview/route.js # POST /api/review/preview
+│       ├── review/post/route.js    # POST /api/review/post
+│       ├── review/merge/route.js   # POST /api/review/merge
+│       ├── chat/route.js           # POST /api/chat
+│       └── health/route.js         # GET /api/health
+├── components/ChatPanel.jsx
+├── lib/
+│   ├── api-client.js       # fetch wrapper used by the UI
 │   └── services/
-│       ├── github.js      # GitHub API (fetch, post review, merge)
-│       └── analyzer.js    # 6-dimension per-file review engine
-├── cmd/index.js           # CLI tool (imports analyzer)
-├── docs/                  # Architecture + API docs
+│       ├── github.js       # GitHub API (fetch, post review, merge)
+│       └── analyzer.js     # 6-dimension per-file review engine
+├── cmd/index.js            # CLI tool (imports analyzer directly)
+├── docs/                   # Architecture + API docs
 └── package.json
 ```
 
@@ -24,14 +32,12 @@ prismlens/
 
 ```bash
 npm install
-cd client && npm install && cd ..
 
-# Dev mode (two terminals)
-npm run client:dev     # Vite HMR on :5173
-npm run server         # Express on :3000
+# Dev mode — one process, UI + API together
+npm run dev             # http://localhost:3000
 
 # Production
-npm run deploy         # Build React + start Express → localhost:3000
+npm run build && npm run start
 
 # CLI
 npm run review https://github.com/user/repo/pull/17

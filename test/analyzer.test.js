@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeFallback } from '../server/services/analyzer.js';
+import { analyzeFallback } from '../lib/services/analyzer.js';
 
 function makePrData() {
   return {

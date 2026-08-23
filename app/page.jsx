@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { reviewPR, postReviewToPR, approvePR, mergePR, ApiError } from './services/api.js';
-import ChatPanel from './ChatPanel.jsx';
-import './cyberpunk.css';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { reviewPR, postReviewToPR, approvePR, mergePR } from '../lib/api-client.js';
+import ChatPanel from '../components/ChatPanel.jsx';
 
 const TOKEN_KEY = 'PRISMLENS_TOKEN';
 
@@ -17,9 +18,12 @@ function saveToken(token) {
 }
 
 function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s ?? '';
-  return d.innerHTML;
+  return (s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 const CATEGORIES = [
@@ -45,9 +49,9 @@ const TYPE_LABELS = {
   INFO: 'Info',
 };
 
-export default function App() {
+export default function Home() {
   const [prUrl, setPrUrl] = useState('');
-  const [token, setToken] = useState(getSavedToken);
+  const [token, setToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -61,6 +65,13 @@ export default function App() {
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState(null);
   const [mergeSuccess, setMergeSuccess] = useState(null);
+
+  // Loaded after mount (not in the initial state) so the server-rendered
+  // markup and the first client render match — localStorage doesn't exist
+  // during SSR, so reading it in a useState initializer would mismatch.
+  useEffect(() => {
+    setToken(getSavedToken());
+  }, []);
 
 const handleSubmit = async (e) => {
   e.preventDefault();

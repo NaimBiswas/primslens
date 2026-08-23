@@ -3,4 +3,4 @@ node_modules/
 review-*.md
 *.log
 .DS_Store
-client/dist/
+.next/

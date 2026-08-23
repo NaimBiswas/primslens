@@ -4,62 +4,69 @@
 
 ```
 prismlens/
-├── client/                         # React + Vite SPA (:5173 dev / served from :3000)
-│   ├── index.html                  # Google Fonts, app title
-│   ├── vite.config.js              # Proxy /api → localhost:3000
-│   ├── package.json                # React 19, Vite 6
-│   └── src/
-│       ├── main.jsx                # ReactDOM.createRoot
-│       ├── App.jsx                 # Form → results → actions (post/merge)
-│       ├── cyberpunk.css           # Glassmorphism with neon palette
-│       └── services/
-│           └── api.js              # reviewPR, postReviewToPR, mergePR
-├── server/                         # Express API on :3000
-│   ├── index.js                    # Middleware (helmet, cors), SPA fallback
-│   ├── routes/
-│   │   └── review.js               # /review, /review/preview, /review/post, /review/merge, /health
+├── app/                             # Next.js (App Router) — UI + API, one process on :3000
+│   ├── layout.jsx                   # Google Fonts, metadata (title/icons/manifest)
+│   ├── page.jsx                     # Form → results → actions (post/merge), "use client"
+│   ├── globals.css                  # Glassmorphism with neon palette
+│   └── api/
+│       ├── review/route.js          # POST /api/review
+│       ├── review/preview/route.js  # POST /api/review/preview
+│       ├── review/post/route.js     # POST /api/review/post
+│       ├── review/merge/route.js    # POST /api/review/merge
+│       ├── chat/route.js            # POST /api/chat
+│       └── health/route.js          # GET /api/health
+├── components/
+│   └── ChatPanel.jsx                # Chat overlay, "use client"
+├── lib/
+│   ├── api-client.js                # reviewPR, postReviewToPR, mergePR (fetch wrapper)
+│   ├── api-error.js                 # shared GitHub-error → HTTP-status mapping
 │   └── services/
-│       ├── github.js               # fetchPR, fetchPRFiles, postPRReview, mergePR
-│       └── analyzer.js             # 6-dimension per-file review engine
+│       ├── github.js                # fetchPR, fetchPRFiles, postPRReview, mergePR
+│       ├── analyzer.js              # 6-dimension per-file review engine
+│       ├── chat.js                  # opencode-backed chat, spawns opencode CLI
+│       └── shared.js                # locates the opencode binary
 ├── cmd/
-│   └── index.js                    # CLI — imports analyzer, supports --json, -o file
+│   └── index.js                     # CLI — imports lib/services/analyzer.js directly, supports --json, -o file
 ├── docs/
 │   ├── architecture.md
 │   └── api.md
-├── package.json                    # ES modules, server + CLI deps
+├── next.config.js                   # Security headers (replaces Helmet)
+├── package.json                     # ES modules, Next.js + CLI deps
 └── .env.example
 ```
 
-## Three-Tier Architecture
+## Architecture
 
 ```
-┌──────────┐     HTTP/JSON     ┌──────────┐     HTTPS    ┌──────────┐
-│          │ ─────────────────> │          │ ────────────> │          │
-│  Client  │   POST /api/*      │  Server  │   GitHub API  │  GitHub  │
-│ (Browser)│ <───────────────── │ (Node)   │ <──────────── │          │
-│          │   JSON Response    │          │   JSON Data   │          │
-└──────────┘                   └──────────┘               └──────────┘
+┌──────────┐     HTTP/JSON     ┌──────────────┐    HTTPS    ┌──────────┐
+│          │ ─────────────────> │              │ ───────────> │          │
+│  Browser │   POST /api/*      │  Next.js     │  GitHub API  │  GitHub  │
+│          │ <───────────────── │  (Node)      │ <─────────── │          │
+│          │   JSON Response    │              │  JSON Data   │          │
+└──────────┘                   └──────────────┘              └──────────┘
 ```
 
-### 1. Client (`client/`)
-- **React + Vite SPA** with cyberpunk glassmorphism UI
+One Next.js process serves both the UI (`app/page.jsx`) and the JSON API (`app/api/**/route.js`) from the same origin on port 3000 — no separate dev server, no `/api` proxy.
+
+### 1. UI (`app/`, `components/`)
+- **Next.js App Router**, cyberpunk glassmorphism UI, single client-rendered view (no routing needed — one form → results screen)
 - Input form for PR URL and GitHub token
 - Displays review results grouped by 6 categories (Performance, Security, Readability, Bugs, Scalability, Best Practices)
 - Shows severity badges (critical/high/medium/low) and type badges (Bug/Concern/Strength/Info)
-- Actions: **Post to PR** (submits review as GitHub PR review comment), **Merge PR** (merges the PR, shown only on APPROVE)
+- Actions: **Post to PR** (submits review as GitHub PR review comment), **Merge PR** (merges the PR, shown only on APPROVE), **Chat** (opens `ChatPanel`)
 - Token persisted in `localStorage` under `PRISMLENS_TOKEN`
-- Dev mode: Vite on :5173 with proxy to :3000; Production: served from Express
+- Dev: `npm run dev`; Production: `npm run build && npm run start` — both a single process, no build-then-serve-statically step to coordinate
 
-### 2. Server (`server/`)
-- **Express.js** on port 3000
-- Serves built client from `client/dist/`
-- REST API endpoints for review analysis, posting reviews, and merging PRs
-- Proxies all GitHub API calls (token stays server-side)
-- Imports same analyzer module as CLI
+### 2. API (`app/api/`)
+- **Next.js Route Handlers**, Node.js runtime (not edge — the review/chat routes shell out to a child process)
+- Same 5 POST endpoints + 1 health check as before, same paths, same request/response shapes
+- Proxies all GitHub API calls (token stays server-side, passed per-request from the client)
+- Imports the same `lib/services/analyzer.js` module the CLI uses
+- Runs as a single persistent Node.js process (`next start`), not serverless — `chat.js` can take up to 20 minutes per turn (it shells out to the `opencode` CLI), which needs a long-lived process rather than a serverless function
 
 ### 3. CLI (`cmd/`)
 - **Node.js terminal tool** using `commander`
-- Imports `analyzePR` from server services directly
+- Imports `analyzePR` from `lib/services/analyzer.js` directly (no HTTP call, doesn't need the Next.js server running)
 - Options: `--json` (raw JSON), `-o <file>` (markdown report export)
 - Output grouped by the 6 categories with severity breakdown
 
@@ -108,7 +115,7 @@ Client (Browser)
      │
      │ POST /api/review { prUrl, token }
      ▼
-Server Routes (review.js)
+Route Handler (app/api/review/route.js)
      │
      ├── github.fetchPR(prUrl, token) ──────→ GitHub API
      │                                            │
@@ -155,16 +162,16 @@ Formatting the review as a GitHub PR review comment:
 
 - Token passed in request body (not headers) — simple for MVP
 - All GitHub API calls made server-side — token never exposed to client
-- Cors permissive (`origin: '*'`) — restrict for production
-- Helmet middleware for security headers
+- No CORS middleware — UI and API are same-origin (one Next.js process), so there's no cross-origin caller to allow
+- Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) set in `next.config.js`, no CSP (matches the prior Helmet config, which also left CSP disabled)
 - No database — all processing is ephemeral
 - Token stored in `localStorage` (not cookies) on the client
 
 ## Key Design Decisions
 
 1. **Per-file, multi-dimension analysis** — every file is evaluated against all 6 dimensions, not just file-type-specific checks
-2. **Same analyzer for CLI and Web** — `analyzer.js` imported by both `server/` and `cmd/`
-3. **ES Modules** throughout — `"type": "module"` in root package.json
+2. **Same analyzer for CLI and Web** — `lib/services/analyzer.js` imported by both the Next.js API routes and `cmd/`
+3. **ES Modules** throughout — `"type": "module"` in package.json
 4. **No database** — ephemeral, no PR data stored
 5. **Action buttons in UI** — Post to PR and Merge PR available from the results view
-6. **Vite dev proxy** — `/api` requests forwarded from `:5173` to `:3000`
+6. **Single-origin, single-process** — the UI and API are one Next.js app; no dev proxy or separate static-file server to coordinate

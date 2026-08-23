@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Command } from 'commander';
-import { analyzePR } from '../server/services/analyzer.js';
-import { fetchPR, fetchPRFiles } from '../server/services/github.js';
+import { analyzePR } from '../lib/services/analyzer.js';
+import { fetchPR, fetchPRFiles } from '../lib/services/github.js';
 
 const program = new Command();
 

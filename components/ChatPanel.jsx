@@ -1,5 +1,7 @@
+'use client';
+
 import { useState, useRef, useEffect } from 'react';
-import { postChatMessage } from './services/api.js';
+import { postChatMessage } from '../lib/api-client.js';
 
 export default function ChatPanel({ prUrl, token, review, onClose }) {
   const [messages, setMessages] = useState(() => {
