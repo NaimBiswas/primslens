@@ -292,6 +292,106 @@
   opacity: 0.7;
 }
 
+/* ─── Model selection ──────────────────────────────────── */
+
+.modelList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modelRow {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.modelRow:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.modelRow:focus-visible {
+  outline: 2px solid var(--neon-blue);
+  outline-offset: 1px;
+}
+
+.modelRow:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.modelRowActive {
+  border-color: rgba(5, 217, 232, 0.4);
+  background: rgba(5, 217, 232, 0.06);
+}
+
+.modelRadio {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modelRadioActive {
+  border-color: var(--neon-blue);
+}
+
+.modelRadioActive::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--neon-blue);
+  box-shadow: 0 0 6px var(--neon-blue);
+}
+
+.modelInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.modelName {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.modelMeta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.modelBadgeActive {
+  flex-shrink: 0;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  color: var(--neon-blue);
+  background: rgba(5, 217, 232, 0.1);
+  border: 1px solid rgba(5, 217, 232, 0.25);
+}
+
 /* ─── Responsive ───────────────────────────────────────── */
 
 @media (max-width: 720px) {

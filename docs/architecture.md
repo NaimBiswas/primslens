@@ -19,10 +19,12 @@ prismlens/
 │       ├── chat/route.js            # POST /api/chat
 │       ├── health/route.js          # GET /api/health
 │       ├── automation/status/route.js # GET /api/automation/status — for the Automation dashboard tab
+│       ├── model/route.js           # GET/POST /api/model — for the Model dashboard tab
 │       └── webhooks/github/route.js # POST /api/webhooks/github — automated PR-comment responder
 ├── components/
 │   ├── CodeReviewPanel.jsx          # The review tool itself (dashboard's "Code Review" tab), "use client"
 │   ├── AutomationPanel.jsx          # Automation status/config/activity (dashboard's "Automation" tab), "use client"
+│   ├── ModelPanel.jsx               # Free-model picker (dashboard's "Model" tab), "use client"
 │   ├── ChatPanel.jsx                # Chat overlay, "use client"
 │   └── Reveal.jsx                   # Scroll-reveal utility, "use client"
 ├── lib/
@@ -34,6 +36,8 @@ prismlens/
 │       ├── analyzer.js              # 6-dimension per-file review engine
 │       ├── chat.js                  # opencode-backed chat, spawns opencode CLI
 │       ├── automation.js            # webhook → analyze comment → reply pipeline
+│       ├── models.js                # lists opencode's free models
+│       ├── model-config.js          # persists the selected model (.prismlens-config.json)
 │       └── shared.js                # locates the opencode binary
 ├── cmd/
 │   └── index.js                     # CLI — imports lib/services/analyzer.js directly, supports --json, -o file
@@ -62,6 +66,7 @@ One Next.js process serves both the UI (`app/page.jsx`) and the JSON API (`app/a
 - **Next.js App Router**, cyberpunk glassmorphism UI. `/` is a marketing landing page; `/code-review` is a dashboard — a left sidebar (Code Review / Automation) plus the active panel, client-rendered tab state
 - **Code Review tab** (`CodeReviewPanel.jsx`): the original tool, form → results view, unchanged behavior
 - **Automation tab** (`AutomationPanel.jsx`): status/config view for the webhook responder below — env-var status, the webhook URL to register, setup steps, and a recent-activity feed
+- **Model tab** (`ModelPanel.jsx`): pick which of opencode's free models (cost 0, no API key) `analyzer.js`/`chat.js` spawn opencode with — or leave it on opencode's own default
 - Input form for PR URL and GitHub token
 - Displays review results grouped by 6 categories (Performance, Security, Readability, Bugs, Scalability, Best Practices)
 - Shows severity badges (critical/high/medium/low) and type badges (Bug/Concern/Strength/Info)

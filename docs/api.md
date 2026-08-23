@@ -275,6 +275,38 @@ Configuration + recent-activity snapshot for the Automation tab in the dashboard
 
 ---
 
+## `GET /api/model`
+
+Lists opencode's free models (the `opencode` provider, cost 0 — no API key needed) and the currently selected one, for the Model tab in the dashboard.
+
+### Response
+
+```json
+{
+  "models": [
+    { "id": "opencode/hy3-free", "name": "Hy3 Free", "context": 190000 }
+  ],
+  "selected": "opencode/hy3-free",
+  "opencodeAvailable": true
+}
+```
+
+`selected: null` means no override is set — review and chat runs use whatever opencode itself is configured to default to. `opencodeAvailable: false` means the `opencode` CLI isn't installed at all (same condition the regex-fallback analyzer falls back for).
+
+## `POST /api/model`
+
+Sets the model used for future `/api/review` and `/api/chat` runs (and the webhook automation, which shares the same analyzer/chat code). Persisted to `.prismlens-config.json` at the project root, so it survives a restart.
+
+### Request
+
+```json
+{ "model": "opencode/hy3-free" }
+```
+
+Pass `{ "model": null }` to clear the override and go back to opencode's own default. Any other value must match an `id` from `GET /api/model`'s list — `400` otherwise.
+
+---
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |

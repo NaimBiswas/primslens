@@ -19,10 +19,12 @@ prismlens/
 │       ├── chat/route.js               # POST /api/chat
 │       ├── health/route.js             # GET /api/health
 │       ├── automation/status/route.js  # GET /api/automation/status
+│       ├── model/route.js              # GET/POST /api/model
 │       └── webhooks/github/route.js    # POST /api/webhooks/github — automated PR-comment responder
 ├── components/
 │   ├── CodeReviewPanel.jsx  # Dashboard's "Code Review" tab
 │   ├── AutomationPanel.jsx  # Dashboard's "Automation" tab
+│   ├── ModelPanel.jsx       # Dashboard's "Model" tab
 │   └── ChatPanel.jsx
 ├── lib/
 │   ├── api-client.js       # fetch wrapper used by the UI
@@ -30,7 +32,8 @@ prismlens/
 │   └── services/
 │       ├── github.js       # GitHub API (fetch, post review, merge, reply)
 │       ├── analyzer.js     # 6-dimension per-file review engine
-│       └── automation.js   # webhook → analyze comment → reply pipeline
+│       ├── automation.js   # webhook → analyze comment → reply pipeline
+│       └── models.js       # lists opencode's free models
 ├── cmd/index.js            # CLI tool (imports analyzer directly)
 ├── docs/                   # Architecture + API docs
 └── package.json
@@ -59,6 +62,7 @@ npm run review https://github.com/user/repo/pull/17
 - **Merge PR** — one-click merge from the UI (shown when verdict is APPROVE)
 - **CLI** — terminal reviews with `--json` and `-o file` options
 - **Automated PR-comment responder** — react to new comments on PRs assigned to or authored by you, automatically (see below)
+- **Free model picker** — choose which of opencode's own free models (no API key, no cost) powers review and chat, from the dashboard's Model tab
 
 ## Automation
 
@@ -78,6 +82,10 @@ The **Automation tab** in the dashboard (`/code-review`) shows live setup status
    - Events: **Issue comments** and **Pull request review comments**
 
 PrismLens reacts to a comment only when the PR is assigned to, or authored by, the account `GITHUB_TOKEN` belongs to — and it always ignores comments it posted itself, so it never replies to its own replies.
+
+## Model Selection
+
+opencode ships several models on its own `opencode` provider that are free to use — no API key, no cost. The dashboard's **Model tab** lists them and lets you pick one; the choice applies to every review, chat, and automated reply from then on, and persists across restarts. Leaving it on "opencode default" uses whatever opencode itself is configured to default to.
 
 ## API Endpoints
 

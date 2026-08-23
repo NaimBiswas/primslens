@@ -4,12 +4,20 @@ import { useState } from 'react';
 import Link from 'next/link';
 import CodeReviewPanel from '../../components/CodeReviewPanel.jsx';
 import AutomationPanel from '../../components/AutomationPanel.jsx';
+import ModelPanel from '../../components/ModelPanel.jsx';
 import styles from './dashboard.module.css';
 
 const TABS = [
   { key: 'review', label: 'Code Review' },
   { key: 'automation', label: 'Automation' },
+  { key: 'model', label: 'Model' },
 ];
+
+const PANELS = {
+  review: CodeReviewPanel,
+  automation: AutomationPanel,
+  model: ModelPanel,
+};
 
 export default function Dashboard() {
   const [tab, setTab] = useState('review');
@@ -55,7 +63,10 @@ export default function Dashboard() {
       <div className={styles.content}>
         <div className={styles.contentInner}>
           <h1 className={styles.pageTitle}>{TABS.find((t) => t.key === tab)?.label}</h1>
-          {tab === 'review' ? <CodeReviewPanel /> : <AutomationPanel />}
+          {(() => {
+            const Panel = PANELS[tab];
+            return <Panel />;
+          })()}
         </div>
       </div>
     </div>
