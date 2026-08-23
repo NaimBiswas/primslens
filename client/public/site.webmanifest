@@ -1,0 +1,12 @@
+{
+  "name": "PrismLens",
+  "short_name": "PrismLens",
+  "description": "Opencode-style code review with cyberpunk glassmorphism UI",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "theme_color": "#0a0a0f",
+  "background_color": "#0a0a0f",
+  "display": "standalone"
+}
