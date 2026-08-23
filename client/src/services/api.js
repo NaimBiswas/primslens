@@ -8,46 +8,35 @@ export class ApiError extends Error {
   }
 }
 
-export async function reviewPR(prUrl, token) {
-  const res = await fetch(`${API_BASE}/review`, {
+async function postJson(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prUrl, token }),
+    body: JSON.stringify(body),
   });
-  const data = await res.json();
-  if (!res.ok) throw new ApiError(data.error || 'Review failed', res.status);
+  const data = await res.json().catch(() => ({ error: 'Invalid server response' }));
+  if (!res.ok) throw new ApiError(data.error || 'Request failed', res.status);
   return data;
 }
 
+export async function reviewPR(prUrl, token) {
+  return postJson('/review', { prUrl, token });
+}
+
 export async function postReviewToPR(prUrl, token, review) {
-  const res = await fetch(`${API_BASE}/review/post`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prUrl, token, review }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new ApiError(data.error || 'Failed to post review', res.status);
+  const data = await postJson('/review/post', { prUrl, token, review });
   return data;
 }
 
 export async function approvePR(prUrl, token, review) {
-  const res = await fetch(`${API_BASE}/review/post`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prUrl, token, review, event: 'APPROVE' }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new ApiError(data.error || 'Failed to approve PR', res.status);
-  return data;
+  return postJson('/review/post', { prUrl, token, review, event: 'APPROVE' });
 }
 
 export async function mergePR(prUrl, token, mergeMethod) {
-  const res = await fetch(`${API_BASE}/review/merge`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prUrl, token, mergeMethod }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new ApiError(data.error || 'Failed to merge PR', res.status);
-  return data;
+  return postJson('/review/merge', { prUrl, token, mergeMethod });
+}
+
+export async function postChatMessage(prUrl, token, review, message, history) {
+  const data = await postJson('/chat', { prUrl, token, review, message, history });
+  return data.content || '';
 }

@@ -1,35 +1,16 @@
 import { Router } from 'express';
 import { fetchPR, fetchPRFiles, postPRReview, mergePR } from '../services/github.js';
 import { analyzePR } from '../services/analyzer.js';
+import { processChatMessage } from '../services/chat.js';
 
 const router = Router();
 
-/**
- * POST /api/review
- * Body: { prUrl: string, token: string }
- * Returns: { meta, reviews, strengths, concerns, bugs, info, recommendation, files }
- */
-router.post('/review', async (req, res) => {
-  const { prUrl, token } = req.body;
-
-  if (!prUrl) return res.status(400).json({ error: 'prUrl is required' });
-  if (!token) return res.status(400).json({ error: 'GitHub token is required' });
-
-  try {
-    const [prData, files] = await Promise.all([
-      fetchPR(prUrl, token),
-      fetchPRFiles(prUrl, token),
-    ]);
-
-    const review = analyzePR(prData, files);
-    res.json(review);
-  } catch (err) {
-    const status = err.response?.status || 500;
-    const data = err.response?.data;
-    const msg = data?.errors?.[0]?.message || data?.message || err.message;
-    res.status(status).json({ error: msg });
-  }
-});
+function githubErrorResponse(err) {
+  const status = err.response?.status || 500;
+  const data = err.response?.data;
+  const msg = data?.errors?.[0]?.message || data?.errors?.join?.(', ') || data?.message || err.message;
+  return { status, msg };
+}
 
 /**
  * POST /api/review/preview
@@ -55,9 +36,7 @@ router.post('/review/preview', async (req, res) => {
       base: { ref: prData.base?.ref, sha: prData.base?.sha },
     });
   } catch (err) {
-    const status = err.response?.status || 500;
-    const data = err.response?.data;
-    const msg = data?.errors?.[0]?.message || data?.message || err.message;
+    const { status, msg } = githubErrorResponse(err);
     res.status(status).json({ error: msg });
   }
 });
@@ -78,9 +57,7 @@ router.post('/review/post', async (req, res) => {
     const result = await postPRReview(prUrl, token, review, event);
     res.json({ id: result.id, html_url: result.html_url, message: 'Review posted successfully' });
   } catch (err) {
-    const status = err.response?.status || 500;
-    const data = err.response?.data;
-    const msg = data?.errors?.join(", ") || data?.message || err.message;
+    const { status, msg } = githubErrorResponse(err);
     res.status(status).json({ error: msg });
   }
 });
@@ -100,20 +77,55 @@ router.post('/review/merge', async (req, res) => {
     const result = await mergePR(prUrl, token, mergeMethod || 'merge');
     res.json({ sha: result.sha, merged: result.merged, message: result.message || 'Pull request merged' });
   } catch (err) {
-    console.log(JSON.stringify(err?.response.data, null, 2))
-    const status = err.response?.status || 500;
-    const data = err.response?.data;
-    const msg = data?.errors?.[0]?.message || data?.message || err.message;
+    const { status, msg } = githubErrorResponse(err);
     res.status(status).json({ error: msg });
   }
 });
 
 /**
- * GET /api/health
- * Returns server health check
+ * POST /api/chat
+ * Body: { message, prUrl, token, review }
+ * Interact with review findings — fix, commit, list, etc.
  */
-router.get('/health', (_, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+router.post('/chat', async (req, res) => {
+  const { message, prUrl, token, review, history } = req.body;
+  if (!message) return res.status(400).json({ error: 'message is required' });
+  if (!prUrl) return res.status(400).json({ error: 'prUrl is required' });
+  if (!token) return res.status(400).json({ error: 'GitHub token is required' });
+  if (!review) return res.status(400).json({ error: 'review data is required' });
+
+  try {
+    const result = await processChatMessage({ message, prUrl, token, review, history });
+    res.json(result);
+  } catch (err) {
+    const { status, msg } = githubErrorResponse(err);
+    res.status(status).json({ error: msg });
+  }
+});
+
+/**
+ * POST /api/review
+ * Body: { prUrl: string, token: string }
+ * Returns: { meta, reviews, strengths, concerns, bugs, info, recommendation, files }
+ */
+router.post('/review', async (req, res) => {
+  const { prUrl, token } = req.body;
+
+  if (!prUrl) return res.status(400).json({ error: 'prUrl is required' });
+  if (!token) return res.status(400).json({ error: 'GitHub token is required' });
+
+  try {
+    const [prData, files] = await Promise.all([
+      fetchPR(prUrl, token),
+      fetchPRFiles(prUrl, token),
+    ]);
+
+    const review = await analyzePR(prData, files);
+    res.json(review);
+  } catch (err) {
+    const { status, msg } = githubErrorResponse(err);
+    res.status(status).json({ error: msg });
+  }
 });
 
 export default router;

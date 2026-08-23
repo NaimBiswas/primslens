@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
+import http from 'http';
 import { fileURLToPath } from 'url';
 import reviewRoutes from './routes/review.js';
 import morgan  from 'morgan';
@@ -16,8 +17,13 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '5mb' }));
-app.use(morgan('dev'))
+app.use(morgan('dev'));
+
 // ─── API Routes ────────────────────────────────────────────────────────────
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
 
 app.use('/api', reviewRoutes);
 
@@ -34,9 +40,13 @@ app.use((req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 
+// ─── HTTP Server ────────────────────────────────────────────────────────────
+
+const server = http.createServer(app);
+
 // ─── Start ─────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log('');
   console.log('╔═════════════════════════════════════════════════════════╗');
   console.log('║   🚀 PRISMLENS — Code Review Server                     ║');

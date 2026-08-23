@@ -60,6 +60,50 @@ export const postPRReview = async (prUrl, token, reviewData, event) => {
   return res.data;
 };
 
+export const fetchFileContent = async (prUrl, token, path) => {
+  const { owner, repo } = parsePRUrl(prUrl);
+  const pr = await fetchPR(prUrl, token);
+  const ref = pr.head?.ref;
+  const res = await axios.get(
+    `${GITHUB_BASE_URL}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`,
+    { headers: GITHUB_HEADERS(token) }
+  );
+  return {
+    content: Buffer.from(res.data.content, 'base64').toString('utf-8'),
+    sha: res.data.sha,
+    encoding: res.data.encoding,
+  };
+};
+
+export const commitFile = async (prUrl, token, path, content, message) => {
+  const { owner, repo } = parsePRUrl(prUrl);
+  const pr = await fetchPR(prUrl, token);
+  const branch = pr.head?.ref;
+
+  let sha;
+  try {
+    const existing = await axios.get(
+      `${GITHUB_BASE_URL}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${branch}`,
+      { headers: GITHUB_HEADERS(token) }
+    );
+    sha = existing.data.sha;
+  } catch {}
+
+  const body = {
+    message,
+    content: Buffer.from(content, 'utf-8').toString('base64'),
+    branch,
+  };
+  if (sha) body.sha = sha;
+
+  const res = await axios.put(
+    `${GITHUB_BASE_URL}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`,
+    body,
+    { headers: GITHUB_HEADERS(token) }
+  );
+  return res.data;
+};
+
 export const mergePR = async (prUrl, token, mergeMethod = 'merge') => {
   const { owner, repo, prNumber } = parsePRUrl(prUrl);
   const res = await axios.put(
@@ -167,6 +211,15 @@ function hasAnyFindings(review) {
   return CATEGORIES.some((cat) => (review[cat.key] || []).length > 0);
 }
 
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractFileFromIssue(issue) {
+  const match = issue.match(/\s+in\s+(\S+)$/);
+  return match ? match[1] : '';
+}
+
 function generateReviewBody(review) {
   const { meta, recommendation } = review;
 
@@ -228,15 +281,6 @@ function generateReviewBody(review) {
   }
 
   if (!hasDetail) md += `\n_No specific findings._\n`;
-
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function extractFileFromIssue(issue) {
-  const match = issue.match(/\s+in\s+(\S+)$/);
-  return match ? match[1] : '';
-}
 
   md += `\n---\n`;
   md += `### Comment\n\n`;

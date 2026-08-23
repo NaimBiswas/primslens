@@ -41,7 +41,7 @@ program
         fetchPRFiles(prUrl, token),
       ]);
 
-      const review = analyzePR(prData, files);
+      const review = await analyzePR(prData, files);
 
       if (options.json) {
         console.log(JSON.stringify(review, null, 2));
@@ -56,6 +56,7 @@ program
       console.log(`  Author:  ${meta.prAuthor}`);
       console.log(`  Files:   ${meta.stats.filesChanged}  (+${meta.stats.additions}/-${meta.stats.deletions})`);
       console.log(`  Branch:  ${meta.branch || '?'}`);
+      console.log(`  Mode:    ${meta.analysisMode === 'ai' ? 'AI (opencode)' : 'regex fallback'}`);
       console.log(line);
 
       for (const cat of CATEGORIES) {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { reviewPR, postReviewToPR, approvePR, mergePR, ApiError } from './services/api.js';
+import ChatPanel from './ChatPanel.jsx';
 import './cyberpunk.css';
 
 const TOKEN_KEY = 'PRISMLENS_TOKEN';
@@ -56,29 +57,30 @@ export default function App() {
   const [approving, setApproving] = useState(false);
   const [approveError, setApproveError] = useState(null);
   const [approveSuccess, setApproveSuccess] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState(null);
   const [mergeSuccess, setMergeSuccess] = useState(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!prUrl.trim()) return alert('Enter a PR URL');
-    if (!token.trim()) return alert('Enter a GitHub token');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!prUrl.trim()) return setError('Enter a PR URL');
+  if (!token.trim()) return setError('Enter a GitHub token');
 
-    saveToken(token.trim());
-    setLoading(true);
-    setError(null);
-    setResult(null);
+  saveToken(token.trim());
+  setLoading(true);
+  setError(null);
+  setResult(null);
 
-    try {
-      const data = await reviewPR(prUrl.trim(), token.trim());
-      setResult(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const data = await reviewPR(prUrl.trim(), token.trim());
+    setResult(data);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleApprove = async () => {
     if (!prUrl.trim() || !token.trim() || !result) return;
@@ -97,6 +99,7 @@ export default function App() {
 
   const handleMerge = async () => {
     if (!prUrl.trim() || !token.trim()) return;
+    if (!window.confirm(`Merge this pull request?\n\n${result?.meta?.prTitle || prUrl}`)) return;
     setMerging(true);
     setMergeError(null);
     setMergeSuccess(null);
@@ -203,7 +206,14 @@ export default function App() {
 
         {result && !loading && (
           <>
-            <div className="section-title blue">PR INFO</div>
+            <div className="section-title blue">
+              PR INFO
+              {result.meta?.analysisMode && (
+                <span className={`mode-badge mode-${result.meta.analysisMode}`}>
+                  {result.meta.analysisMode === 'ai' ? 'AI ANALYSIS' : 'REGEX FALLBACK'}
+                </span>
+              )}
+            </div>
             <div className="pr-info">
               {[
                 { label: 'Title', value: result.meta?.prTitle, cls: '' },
@@ -265,15 +275,7 @@ export default function App() {
               {(result.files ?? []).length === 0 ? (
                 <div className="empty-state">No file changes found.</div>
               ) : (
-                result.files.map((f) => (
-                  <div className="file-item" key={f.name}>
-                    <span className="file-name">{esc(f.name)}</span>
-                    <div className="file-stats">
-                      <span className="stat-add">+{f.additions || 0}</span>
-                      <span className="stat-del">-{f.deletions || 0}</span>
-                    </div>
-                  </div>
-                ))
+                result.files.map((f) => <FileDiffItem key={f.name} file={f} />)
               )}
             </div>
 
@@ -292,6 +294,7 @@ export default function App() {
                     {merging ? 'Merging...' : 'Merge'}
                   </button>
                 )}
+                <button className="btn btn-chat" onClick={() => setChatOpen(true)}>Chat</button>
                 <button className="btn btn-secondary" onClick={handleReset}>New Review</button>
               </div>
               {postError && <p className="post-error">{esc(postError)}</p>}
@@ -314,6 +317,54 @@ export default function App() {
           </>
         )}
       </main>
+
+      {result && chatOpen && (
+        <ChatPanel
+          prUrl={prUrl.trim()}
+          token={token.trim()}
+          review={result}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
+
+      {result && !chatOpen && (
+        <button className="chat-toggle" onClick={() => setChatOpen(true)} title="Open Chat">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span className="chat-toggle-badge">!</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function FileDiffItem({ file }) {
+  const [open, setOpen] = useState(false);
+  const hasPatch = !!file.patch;
+
+  return (
+    <div className="file-item-wrap">
+      <button
+        type="button"
+        className={`file-item ${hasPatch ? 'file-item-clickable' : ''}`}
+        onClick={() => hasPatch && setOpen((v) => !v)}
+        disabled={!hasPatch}
+      >
+        <span className="file-name">{hasPatch ? (open ? '▾ ' : '▸ ') : ''}{esc(file.name)}</span>
+        <div className="file-stats">
+          <span className="stat-add">+{file.additions || 0}</span>
+          <span className="stat-del">-{file.deletions || 0}</span>
+        </div>
+      </button>
+      {open && hasPatch && (
+        <pre className="file-patch">
+          {file.patch.split('\n').map((line, i) => {
+            const cls = line.startsWith('+') ? 'diff-add' : line.startsWith('-') ? 'diff-del' : 'diff-ctx';
+            return <div className={cls} key={i}>{line}</div>;
+          })}
+        </pre>
+      )}
     </div>
   );
 }
