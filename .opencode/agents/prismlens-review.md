@@ -18,20 +18,25 @@ Read `.prismlens-review-context.json` from the project root:
 ```json
 {
   "prTitle": "string",
+  "repoTree": ["path/to/every/file/in/the/repo.js", "..."],
+  "repoTreeTruncated": false,
   "files": [
     {
       "filename": "path/to/file.js",
       "patch": "@@ -1,5 +1,8 @@\n context lines\n+added line\n-removed line",
       "status": "modified|added|removed|renamed",
       "additions": 10,
-      "deletions": 3
+      "deletions": 3,
+      "fullContent": "the complete file, at the PR's head commit, or null if it couldn't be fetched (binary, too large, deleted)"
     }
   ],
   "avoidPatternsLike": ["issue text a reviewer previously marked unhelpful", "..."]
 }
 ```
 
-Only files with a non-empty `patch` field have changes to review. Focus on the **added lines** (those starting with `+` in the patch).
+Only files with a non-empty `patch` field have changes to review. **Use `fullContent` as your primary reading material, not `patch`.** The patch is just which lines changed; `fullContent` is the surrounding function, its neighbors in the file, existing error handling, existing patterns — read it to understand what the change actually does in context, not just which lines have a `+`/`-`. Still anchor findings to the lines that actually changed (via the patch) — don't flag pre-existing code the PR didn't touch, even if you notice something wrong in it while reading `fullContent` for context. When `fullContent` is `null`, fall back to reasoning from `patch` alone.
+
+`repoTree` is every file path in the repository (capped; `repoTreeTruncated: true` means the repo has more files than were included) — no content, just structure. Use it to judge whether this review is genuinely codebase-aware: does the change duplicate logic that already lives elsewhere (a similarly-named file, an obvious existing utility), does it violate the project's own layout conventions (a file landing outside where its siblings live), does a new dependency or pattern look inconsistent with what the rest of the tree already does. Don't invent claims about files you can't see the content of — the tree only tells you a path exists, not what's in it.
 
 If `avoidPatternsLike` is non-empty, it's real feedback from past reviews — reviewers marked findings phrased like these as not worth flagging (👎 in the UI). Don't report a new finding that's essentially the same pattern in the same spirit; use it to calibrate what counts as noise for this project, not as a hard ban on the underlying category.
 

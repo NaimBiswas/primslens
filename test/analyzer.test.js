@@ -97,6 +97,15 @@ test('flags a substantial code change with no test file as a best-practices conc
   assert.ok(result.best_practices.some((f) => /no accompanying test file/i.test(f.issue)));
 });
 
+test('missing-test finding suggests a concrete test skeleton for the largest changed file', () => {
+  const lines = Array.from({ length: 20 }, (_, i) => `+function step${i}() { return ${i}; }`);
+  const file = makeFile('src/feature.js', lines);
+  const result = analyzeFallback(makePrData(), [file]);
+  const finding = result.best_practices.find((f) => /no accompanying test file/i.test(f.issue));
+  assert.ok(finding.recommendation.includes('src/feature.js'));
+  assert.ok(finding.recommendation.includes("describe("));
+});
+
 test('does not flag missing tests when a test file is part of the PR', () => {
   const lines = Array.from({ length: 20 }, (_, i) => `+function step${i}() { return ${i}; }`);
   const files = [makeFile('src/feature.js', lines), makeFile('src/feature.test.js', ['+test("step0", () => {});'])];

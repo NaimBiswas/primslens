@@ -46,6 +46,7 @@ prismlens/
 │       ├── review-config.js         # loads per-repo .prismlens.json (ignore paths, severity overrides, disabled checks)
 │       ├── dependency-scan.js       # OSV.dev vulnerability scan for package.json dependencies
 │       ├── feedback.js              # 👍/👎 log (.prismlens-feedback.json), feeds "avoid patterns like this" back into the AI prompt
+│       ├── test-skeleton.js         # language-aware test skeleton for the missing-test finding
 │       └── shared.js                # locates the opencode binary
 ├── cmd/
 │   └── index.js                     # CLI — imports lib/services/analyzer.js directly, supports --json, -o file
@@ -113,7 +114,16 @@ Three independent, optional layers `analyzePR()` composes on top of the core per
 - **`dependency-scan.js`** — runs only if the diff touches `package.json` and only if a `token` was passed to `analyzePR()`. Fetches the full manifest, merges `dependencies`+`devDependencies` (capped at 40 to bound request volume), and queries [OSV.dev](https://osv.dev) per-package with an 8s timeout. Results become `security`-category `BUG` findings folded in via `mergeFindings()` — a helper that recomputes every categorized array (`reviews`, `strengths`/`concerns`/`bugs`/`info`, per-dimension) rather than duplicating `buildResult()`'s categorization logic inline.
 - **`feedback.js`** — `POST /api/feedback` appends a 👍/👎 record to `.prismlens-feedback.json` (gitignored, capped at the 200 most recent entries). `analyzeWithOpenCode()` reads the last 10 👎'd issue texts and passes them to the AI as `avoidPatternsLike` — a calibration signal ("don't re-flag things phrased like this"), not a hard suppression rule; see `.opencode/agents/prismlens-review.md`.
 
-Also folded into every review, no separate service: `analyzer.js`'s `checkMissingTests()` flags a PR that adds 15+ lines of new code across non-test files without touching any test file itself, as a `best-practices` `CONCERN`.
+Also folded into every review, no separate service: `analyzer.js`'s `checkMissingTests()` flags a PR that adds 15+ lines of new code across non-test files without touching any test file itself, as a `best-practices` `CONCERN`. Its `recommendation` isn't generic — `test-skeleton.js`'s `testSkeletonFor(filename)` produces a real, extension-keyed test skeleton (JS/TS, Python, Go, Ruby, Java, Rust) for the file with the most additions, embedded directly in the finding so it's visible in the dashboard itself, not only when posted to GitHub.
+
+### Codebase-aware AI review (`analyzeWithOpenCode` in `analyzer.js`)
+
+The AI review path is no longer diff-only. Before invoking opencode, and only when a `token` is available, `analyzeWithOpenCode()` gathers two extra pieces of context, both best-effort (a failure here just means the review proceeds patch-only, never blocks):
+
+- **Full file content** — `fetchFullFileContents()` calls `github.js`'s `fetchFileContent()` for every changed, non-removed file (capped at 25 files, 15,000 chars each) so the model reads the surrounding function/module, not just the `+`/`-` lines of the patch.
+- **Repo tree** — `github.js`'s `fetchRepoTree()` lists every blob path in the repository at the PR's head commit (`GET .../git/trees/{sha}?recursive=1`, capped at 300 paths, `truncated` flagged if the repo has more) so the model has a structural map — module boundaries, naming conventions, whether similar code already exists elsewhere — without fetching every file's content.
+
+Both are written into `.prismlens-review-context.json` as `files[].fullContent` and `repoTree`/`repoTreeTruncated`, and `.opencode/agents/prismlens-review.md` instructs the agent to read `fullContent` as its primary material while still anchoring findings to lines the PR actually changed (never flagging pre-existing code it happens to see while reading context). The per-review opencode timeout was raised from 180s to 240s to accommodate the larger context. The regex fallback path is unaffected — it's inherently diff-based (it only ever looks at added lines) and has no model to reason about a wider codebase.
 
 ## Analysis Pipeline
 

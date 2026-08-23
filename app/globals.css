@@ -561,6 +561,8 @@ input::placeholder {
   color: var(--text-secondary);
   line-height: 1.5;
   border: 1px solid rgba(255, 255, 255, 0.04);
+  white-space: pre-wrap;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 /* ─── Finding Feedback ────────────────────────────────── */

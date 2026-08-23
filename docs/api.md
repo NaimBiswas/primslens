@@ -128,7 +128,8 @@ The `reviews` array (and its per-category breakdowns) can include findings from 
 
 - If the PR touches `package.json`, its dependencies are checked against [OSV.dev](https://osv.dev) and any known vulnerability lands as a `security`-category `BUG` finding with the fixed version to upgrade to (see [Dependency Scanning](../README.md#dependency-scanning)). A scan failure never fails the request — it's silently skipped.
 - If a repo the PR belongs to has a `.prismlens.json` at its root, findings respect it: paths matching `ignorePaths` are never analyzed, `severityOverrides` rewrite a category's severity, and `disabledChecks` drops a category entirely (see [Custom Review Config](../README.md#custom-review-config)).
-- A `best-practices` `CONCERN` is added when the PR adds a substantial amount of new code (15+ lines across non-test files) without touching any test file itself.
+- A `best-practices` `CONCERN` is added when the PR adds a substantial amount of new code (15+ lines across non-test files) without touching any test file itself. Its `recommendation` includes a real, language-aware test skeleton for the file with the most additions, not just generic advice.
+- When AI analysis runs, it's no longer diff-only: the model reads the full content of every changed file (not just the patch) plus a repo-wide file-tree overview, so findings can reflect the surrounding code and the codebase's own conventions — not only the lines that changed. See [Codebase-aware AI review](architecture.md#codebase-aware-ai-review-analyzewithopencode-in-analyzerjs) in the architecture doc.
 
 ---
 

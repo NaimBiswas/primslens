@@ -69,7 +69,8 @@ npm run review https://github.com/user/repo/pull/17
 - **Post to PR** — submit the review as a GitHub PR review comment, with inline `suggestion` code blocks (one-click-apply diffs) across every category, not just performance
 - **Auto-generated PR description** — a **Describe** button replaces the PR body with a file-by-file summary + review snapshot generated from the same analysis
 - **Size/risk labels** — a **Label** button derives `size/*` and `risk/*` labels from the diff size and verdict and applies them (creating the labels on the repo first if they don't exist)
-- **Missing-test detection** — flags a PR that adds substantial new code but touches no test file, folded into Best Practices rather than a new dimension
+- **Missing-test detection with a concrete suggestion** — flags a PR that adds substantial new code but touches no test file, folded into Best Practices rather than a new dimension; the finding includes a real, language-aware test skeleton (JS/TS, Python, Go, Ruby, Java, Rust) for the largest changed file, not just "add tests"
+- **Codebase-aware AI review** — the AI reviewer sees the full content of every changed file (not just the diff hunk) plus a repo-wide file-tree overview, so it can catch things pure change-detection misses: duplicated logic that already exists elsewhere, a change that's inconsistent with the surrounding function, a file landing outside the project's own layout conventions
 - **Dependency vulnerability scanning** — when a PR touches `package.json`, its dependencies are checked against [OSV.dev](https://osv.dev)'s free public database; findings land in Security with the fixed version to upgrade to
 - **Learns what not to flag** — 👍/👎 on any finding; recent 👎s are fed back into future AI reviews as "don't flag patterns like this again"
 - **Custom review config** — an optional `.prismlens.json` in the reviewed repo can ignore paths, override severities, or disable whole categories per-repo
