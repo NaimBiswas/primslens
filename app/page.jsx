@@ -183,7 +183,7 @@ export default function LandingPage() {
           <div className={styles.modeRow}>
             <span className={`${styles.modeBadge} mode-badge mode-ai`}>AI ANALYSIS</span>
             <p className={styles.modeDesc}>
-              When <code className="chat-inline-code">opencode</code> is available, PrismLens reads the diff in context
+              With a connected AI provider key, PrismLens reads the diff in context
               and reasons about each finding like a reviewer would.
             </p>
           </div>

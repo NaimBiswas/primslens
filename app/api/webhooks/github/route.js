@@ -58,8 +58,8 @@ export async function POST(req) {
     return NextResponse.json({ ok: true, skipped: skip });
   }
 
-  // Ack immediately — the actual analysis can take minutes (it shells out
-  // to opencode), far longer than GitHub's webhook delivery timeout.
+  // Ack immediately — the actual AI review call can take minutes, far
+  // longer than GitHub's webhook delivery timeout.
   after(() => {
     processAutomatedComment({ eventType, payload }).catch((err) => {
       console.error('[webhooks/github] automation failed:', err.message);

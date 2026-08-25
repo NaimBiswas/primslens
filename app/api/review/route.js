@@ -5,18 +5,18 @@ import { loadReviewConfig } from '../../../lib/services/review-config.js';
 import { githubErrorResponse } from '../../../lib/api-error.js';
 
 export const runtime = 'nodejs';
-// AI review can shell out to opencode for several minutes on a large PR; this
-// only matters on platforms that enforce a function timeout (e.g. Vercel).
+// AI review can take several minutes on a large PR; this only matters on
+// platforms that enforce a function timeout (e.g. Vercel).
 export const maxDuration = 300;
 
 /**
  * POST /api/review
- * Body: { prUrl: string, token: string, geminiApiKey?: string, geminiModel?: string, geminiDisabled?: boolean }
- * `geminiApiKey`/`geminiModel` come from a user's own key entered in the
- * Model page's unified model picker — when present they're used instead of
- * whatever GEMINI_API_KEY the server has configured. `geminiDisabled` is set
- * when the user explicitly picked an opencode model instead, so Gemini must
- * be skipped even if the server has its own key configured.
+ * Body: { prUrl: string, token: string, aiProviderId?: string, aiApiKey?: string, aiModel?: string, aiDisabled?: boolean }
+ * `aiProviderId`/`aiApiKey`/`aiModel` come from a user's own key entered in
+ * the Model page's unified model picker — when present they're used instead
+ * of whatever provider the server has configured via env vars. `aiDisabled`
+ * is set when the user explicitly picked "no AI backend" (regex fallback
+ * only), so a server-configured provider must be skipped too.
  *
  * Streams newline-delimited JSON so the client can show real pipeline state
  * (fetching PR, pulling codebase tree, running AI review, ...) instead of a
@@ -30,14 +30,14 @@ export const maxDuration = 300;
  * "error" line.
  */
 export async function POST(req) {
-  const { prUrl, token, geminiApiKey, geminiModel, geminiDisabled } = await req.json();
+  const { prUrl, token, aiProviderId, aiApiKey, aiModel, aiDisabled } = await req.json();
 
   if (!prUrl) return NextResponse.json({ error: 'prUrl is required' }, { status: 400 });
   if (!token) return NextResponse.json({ error: 'GitHub token is required' }, { status: 400 });
 
-  const geminiOverride = geminiApiKey
-    ? { apiKey: geminiApiKey, model: geminiModel || undefined }
-    : geminiDisabled ? { disabled: true } : null;
+  const aiOverride = aiProviderId && aiApiKey
+    ? { providerId: aiProviderId, apiKey: aiApiKey, model: aiModel || undefined }
+    : aiDisabled ? { disabled: true } : null;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -54,7 +54,7 @@ export async function POST(req) {
         ]);
         onProgress('files-ready', `${files.length} file(s) changed — starting analysis…`);
 
-        const review = await analyzePR(prData, files, config, token, onProgress, geminiOverride);
+        const review = await analyzePR(prData, files, config, token, onProgress, aiOverride);
         send({ type: 'result', data: review });
       } catch (err) {
         const { msg } = githubErrorResponse(err);
