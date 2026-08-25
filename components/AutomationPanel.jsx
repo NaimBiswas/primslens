@@ -5,6 +5,7 @@ import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId, saveInstallationId } from '../lib/automation-local.js';
 
 const ACTIVITY_BADGE_CLASS = {
+  received: 'activityReceived',
   replied: 'activityReplied',
   skipped: 'activitySkipped',
   error: 'activityError',
@@ -277,12 +278,16 @@ export default function AutomationPanel() {
                 {status.recentActivity.map((entry, i) => (
                   <div className={styles.activityRow} key={i}>
                     <span className={`${styles.activityBadge} ${styles[ACTIVITY_BADGE_CLASS[entry.outcome]] || ''}`}>
-                      {entry.outcome}
+                      {entry.outcome === 'received' ? 'queued' : entry.outcome}
                     </span>
                     <div className={styles.activityBody}>
-                      <a href={entry.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
-                        {entry.prTitle || entry.prUrl}
-                      </a>
+                      {entry.prUrl ? (
+                        <a href={entry.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
+                          {entry.prTitle || entry.prUrl}
+                        </a>
+                      ) : (
+                        <span className={styles.activityLink}>{entry.eventType || 'event'}</span>
+                      )}
                       {entry.reason && <span className={styles.activityReason}>{entry.reason}</span>}
                       <span className={styles.activityTime}>{new Date(entry.at).toLocaleString()}</span>
                     </div>

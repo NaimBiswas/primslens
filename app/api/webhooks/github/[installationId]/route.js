@@ -1,7 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { verifyGithubSignature, skipReason } from '../../../../../lib/webhook-verify.js';
 import { processAutomatedComment, processAutomatedPullRequest } from '../../../../../lib/services/automation.js';
-import { getInstallation } from '../../../../../lib/services/installations.js';
+import { getInstallation, recordActivity } from '../../../../../lib/services/installations.js';
 
 export const runtime = 'nodejs';
 
@@ -16,6 +16,19 @@ function alreadySeen(id) {
     seenDeliveries.delete(seenDeliveries.values().next().value);
   }
   return false;
+}
+
+// Best-effort PR link for the immediate "received" activity row — payload
+// shapes differ per event type, and this only needs to be good enough for a
+// clickable link in the dashboard, not authoritative (processAutomated*
+// re-fetches the real PR from the API before doing anything with it).
+function extractPrRef(eventType, payload) {
+  const owner = payload.repository?.owner?.login;
+  const repo = payload.repository?.name;
+  if (!owner || !repo) return {};
+  const pr = eventType === 'issue_comment' ? payload.issue : payload.pull_request;
+  if (!pr?.number) return {};
+  return { prUrl: `https://github.com/${owner}/${repo}/pull/${pr.number}`, prTitle: pr.title };
 }
 
 /**
@@ -63,9 +76,19 @@ export async function POST(req, { params }) {
   }
 
   const skip = skipReason(eventType, payload);
+  const { prUrl, prTitle } = extractPrRef(eventType, payload);
+
   if (skip) {
+    // Still worth a row — this is exactly the gap that made a real,
+    // successfully-delivered webhook look like it never arrived.
+    await recordActivity(installationId, { eventType, prUrl, prTitle, outcome: 'skipped', reason: skip }).catch(() => {});
     return NextResponse.json({ ok: true, skipped: skip });
   }
+
+  // Show up in the queue the moment the event lands — the real outcome
+  // (replied/skipped/error) can take minutes to follow, once the
+  // backgrounded AI call below finishes.
+  await recordActivity(installationId, { eventType, prUrl, prTitle, outcome: 'received' }).catch(() => {});
 
   // Ack immediately — the actual AI review call can take minutes, far
   // longer than GitHub's webhook delivery timeout.
