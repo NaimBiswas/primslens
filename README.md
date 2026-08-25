@@ -43,6 +43,8 @@ prismlens/
 │   ├── api-client.js       # fetch wrapper used by the UI
 │   ├── ai-local.js         # client-side storage for provider keys + active model (localStorage)
 │   ├── automation-local.js # client-side storage for "which automation installation is mine"
+│   ├── automation-poll.js  # shared POLL_MS constant for status polls
+│   ├── activity-format.js  # shared labels/classes for the activity feed
 │   ├── webhook-verify.js   # GitHub webhook signature verification
 │   └── services/
 │       ├── github.js       # GitHub API (fetch, post review, merge, reply, describe, label, commit)
@@ -142,7 +144,7 @@ Running your own deployment? Automation needs a Postgres database (`DATABASE_URL
 
 ## Model Selection
 
-The dashboard's **Model tab** lets you connect your own API key for any of seven providers — Gemini, OpenAI, Anthropic, Groq, OpenRouter, Mistral, DeepSeek — each called directly over HTTPS (no CLI, no install, works the same locally and deployed). Every model from every connected provider shows up in one searchable list below, each labeled with its source and colored accordingly; pick one and it's used for review, chat, and (once connected) your own automation replies.
+The dashboard's **Model page** lets you connect your own API key for any of seven providers — Gemini, OpenAI, Anthropic, Groq, OpenRouter, Mistral, DeepSeek — each called directly over HTTPS (no CLI, no install, works the same locally and deployed). Every model from every connected provider shows up in one searchable list below, each labeled with its source and colored accordingly; pick one and it's used for review, chat, and (once connected) your own automation replies.
 
 A host can also set any provider's `*_API_KEY` env var to make AI review/chat work out of the box for visitors who haven't connected their own key — see [Environment Variables](docs/api.md#environment-variables).
 
