@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId } from '../lib/automation-local.js';
-import { prNumberOf } from '../lib/activity-format.js';
 import { POLL_MS } from '../lib/automation-poll.js';
+import { prNumberOf } from '../lib/activity-format.js';
 
 export default function PendingApprovalsPanel() {
   const [installationId, setInstallationId] = useState('');

@@ -95,6 +95,7 @@
 }
 
 .contentInner {
+  max-width: 880px;
   margin: 0 auto;
 }
 
@@ -250,10 +251,10 @@
 
 .activityFilterSelect {
   flex: 0 0 auto;
-  padding: 1rem 1.25rem;
+  padding: 0.65rem 0.85rem;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--glass-border);
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--text-primary);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85rem;

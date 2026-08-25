@@ -118,24 +118,16 @@ export default function AutomationPanel() {
   const handleDisconnect = async () => {
     if (!installationId) return;
     setDisconnecting(true);
-    setConnectError(null);
     try {
-      const res = await fetch('/api/automation/register', {
+      await fetch('/api/automation/register', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setConnectError(data.error || 'Failed to disconnect');
-        return;
-      }
+    } finally {
       saveInstallationId('');
       setInstallationId('');
       setStatus(null);
-    } catch (err) {
-      setConnectError(err.message);
-    } finally {
       setDisconnecting(false);
     }
   };
@@ -164,11 +156,10 @@ export default function AutomationPanel() {
   // pushed to the server explicitly rather than picked up automatically.
   const myActiveProvider = resolveAIOverride();
 
-  // Shared body for the two AI-config POSTs below — both flip the same
-  // "use this provider for automation" bit, the only difference is whether
-  // they spread the caller's active provider or omit it (to fall back to
-  // the server default). Keeping the fetch/error/reload flow in one place
-  // is what stops the two paths from drifting the next time one is edited.
+  // Single source of truth for the two "save AI config" buttons — they
+  // differ only in the body they send (one spreads the user's current
+  // Model-page selection, the other clears it), so the try/catch,
+  // res.ok check, and post-save reloadStatus are all the same path.
   const saveAIConfig = async (body) => {
     setSavingAIConfig(true);
     setAiConfigError(null);
