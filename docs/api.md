@@ -346,11 +346,12 @@ Disconnects an account — deletes its stored token, webhook secret, and activit
 
 ## `POST /api/webhooks/github/[installationId]`
 
-Receives GitHub webhook deliveries for automated PR-comment responses. Not called by the client — GitHub calls this directly once a webhook is registered on a repo (Settings → Webhooks → Add webhook) using the URL returned by `POST /api/automation/register`, subscribed to the **Issue comments**, **Pull request review comments**, and **Pull request reviews** events.
+Receives GitHub webhook deliveries. Not called by the client — GitHub calls this directly once a webhook is registered on a repo (Settings → Webhooks → Add webhook) using the URL returned by `POST /api/automation/register`, subscribed to the **Issue comments**, **Pull request review comments**, **Pull request reviews**, and **Pull requests** events.
 
-`installationId` looks up that one connected account's own token and webhook secret — there's no shared server config to fall back on, so an unknown id is rejected outright.
+`installationId` looks up that one connected account's own token and webhook secret — there's no shared server config to fall back on, so an unknown id is rejected outright. Dispatches by event type:
 
-For a `created` comment on a PR assigned to or authored by that account's own login, PrismLens runs the same analysis + chat pipeline the interactive UI uses and replies on the PR — a fix preview if the comment implies a code change, a direct answer otherwise. It never commits on its own.
+- `pull_request` (`opened`) — every PR opened on the watched repo gets the full 6-dimension review posted as a PR comment automatically, no assignee/author filter (the webhook itself is already scoped to repos this account chose to watch).
+- `issue_comment` / `pull_request_review_comment` / `pull_request_review` (`submitted`, with a body) — only for PRs assigned to or authored by the account's own login: runs the same analysis + chat pipeline the interactive UI uses and replies on the PR, a fix preview if the comment implies a code change, a direct answer otherwise. Conversation history persists per PR, so a later "commit" reply has the earlier preview in context. Never commits without an explicit confirmation reply.
 
 ### Request
 
@@ -358,7 +359,7 @@ Sent by GitHub, not something you call directly. Key headers:
 
 | Header | Description |
 |--------|-------------|
-| `X-GitHub-Event` | `issue_comment`, `pull_request_review_comment`, or `pull_request_review` — anything else is a no-op |
+| `X-GitHub-Event` | `issue_comment`, `pull_request_review_comment`, `pull_request_review`, or `pull_request` — anything else is a no-op |
 | `X-Hub-Signature-256` | `sha256=<hmac>` of the raw body, keyed with this installation's own webhook secret |
 | `X-GitHub-Delivery` | Unique delivery ID, used to ignore GitHub's occasional redeliveries |
 
@@ -372,7 +373,7 @@ Sent by GitHub, not something you call directly. Key headers:
 | 404 | Unknown `installationId` (never registered, or since disconnected) |
 | 501 | `DATABASE_URL`/`AUTOMATION_ENCRYPTION_KEY` not configured on the server |
 
-A `200` with `{ "skipped": "<reason>" }` means the event was received but wasn't relevant (not a PR comment, not a `created` action, or the PR isn't assigned to/authored by the account's own login) — this is normal, not an error.
+A `200` with `{ "skipped": "<reason>" }` means the event was received but wasn't relevant (not an `opened`/`created`/`submitted` action, a `pull_request_review` with no body text, or the PR isn't assigned to/authored by the account's own login) — this is normal, not an error.
 
 ---
 
@@ -390,11 +391,34 @@ Status + recent-activity snapshot for one connected account, for the Automation 
   "recentActivity": [
     { "at": "2026-08-24T10:00:00.000Z", "prUrl": "https://github.com/o/r/pull/1", "outcome": "replied", "prTitle": "Fix rate limiter" }
   ],
+  "pendingApprovals": [
+    { "prUrl": "https://github.com/o/r/pull/2", "prTitle": "Add rate limiter", "preview": "Here's the proposed fix:\n```diff\n...\n```", "createdAt": "2026-08-26T09:00:00.000Z" }
+  ],
   "webhookUrl": "https://your-host/api/webhooks/github/5e8b3c...-uuid"
 }
 ```
 
-`recentActivity[].outcome` is one of `replied`, `skipped` (with a `reason`), or `error` (with a `reason`).
+`recentActivity[].outcome` is one of `replied`, `skipped` (with a `reason`), or `error` (with a `reason`). `pendingApprovals` lists PRs where a fix was proposed and is waiting for confirmation — one entry per PR, superseded by a newer proposal on the same PR.
+
+## `POST /api/automation/approve`
+
+Approves a pending fix by posting a `commit` comment on the PR using the account's own token — the same trigger a human typing "commit" on GitHub would produce, so it goes through the normal webhook pipeline (with the earlier preview's conversation history intact) rather than committing directly. The actual commit happens once GitHub delivers that comment's webhook, not synchronously with this request.
+
+### Request
+
+```json
+{ "installationId": "5e8b3c...-uuid", "prUrl": "https://github.com/o/r/pull/2" }
+```
+
+## `POST /api/automation/dismiss`
+
+Clears a pending approval from the dashboard without approving it — doesn't touch the PR itself.
+
+### Request
+
+```json
+{ "installationId": "5e8b3c...-uuid", "prUrl": "https://github.com/o/r/pull/2" }
+```
 
 ---
 

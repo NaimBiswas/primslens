@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { verifyGithubSignature, skipReason } from '../../../../../lib/webhook-verify.js';
-import { processAutomatedComment } from '../../../../../lib/services/automation.js';
+import { processAutomatedComment, processAutomatedPullRequest } from '../../../../../lib/services/automation.js';
 import { getInstallation } from '../../../../../lib/services/installations.js';
 
 export const runtime = 'nodejs';
@@ -24,9 +24,12 @@ function alreadySeen(id) {
  * lib/services/automation.js's registerInstallation) — `installationId`
  * looks up that one user's own token + webhook secret, so this route never
  * relies on server-wide env vars the way it used to. Verifies the
- * signature against that installation's secret, and — for comments on PRs
- * assigned to or authored by its token's owner — analyzes the comment and
- * replies. Propose-only: never commits a code change on its own.
+ * signature against that installation's secret, then dispatches by event:
+ * `pull_request` (opened) always gets a full auto-review posted as a PR
+ * comment; `issue_comment` / `pull_request_review_comment` /
+ * `pull_request_review` react only on PRs assigned to or authored by the
+ * token's owner, replying via the same propose-then-confirm chat flow the
+ * interactive UI uses — never commits without an explicit confirmation.
  */
 export async function POST(req, { params }) {
   const { installationId } = await params;
@@ -67,7 +70,10 @@ export async function POST(req, { params }) {
   // Ack immediately — the actual AI review call can take minutes, far
   // longer than GitHub's webhook delivery timeout.
   after(() => {
-    processAutomatedComment({ installationId, eventType, payload }).catch((err) => {
+    const task = eventType === 'pull_request'
+      ? processAutomatedPullRequest({ installationId, payload })
+      : processAutomatedComment({ installationId, eventType, payload });
+    task.catch((err) => {
       console.error('[webhooks/github] automation failed:', err.message);
     });
   });
