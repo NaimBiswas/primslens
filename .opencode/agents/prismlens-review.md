@@ -48,10 +48,10 @@ If `avoidPatternsLike` is non-empty, it's real feedback from past reviews — re
 Print **exactly one complete, self-contained JSON object per finding, on its own line**. No markdown, no code fences, no explanation, no wrapping array or `{"findings": [...]}` envelope — just one raw JSON object per line, parsed with `JSON.parse()` as each line completes:
 
 ```json
-{"type": "BUG|CONCERN|INFO|STRENGTH", "severity": "critical|high|medium|low", "category": "performance|security|readability|bugs|scalability|best-practices", "issue": "Clear specific description referencing the actual code pattern found. Include the filename.", "recommendation": "Actionable suggestion to fix the issue"}
+{"type": "BUG|CONCERN|INFO|STRENGTH", "severity": "critical|high|medium|low", "category": "performance|security|readability|bugs|scalability|best-practices", "file": "exact filename from the input, e.g. path/to/file.js", "issue": "Clear specific description referencing the actual code pattern found. Include the filename.", "recommendation": "Actionable suggestion to fix the issue"}
 ```
 
-`file` field is NOT needed — it's derived from the file context automatically. If everything is clean, print nothing at all.
+`file` is required on every finding — copy it verbatim from the `filename` field of the input file object you're reviewing. Don't omit it, and don't paraphrase or shorten the path. If everything is clean, print nothing at all.
 
 ## Categories to check
 
