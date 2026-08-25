@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId, saveInstallationId } from '../lib/automation-local.js';
 import { resolveAIOverride } from '../lib/ai-local.js';
@@ -17,37 +18,6 @@ const PROVIDER_NAME = {
   mistral: 'Mistral',
   deepseek: 'DeepSeek',
 };
-
-const ACTIVITY_BADGE_CLASS = {
-  received: 'activityReceived',
-  replied: 'activityReplied',
-  skipped: 'activitySkipped',
-  error: 'activityError',
-};
-
-const OUTCOME_LABEL = {
-  received: 'queued',
-  replied: 'replied',
-  skipped: 'skipped',
-  error: 'error',
-};
-
-// What kind of thing this event actually was, so the badge can read
-// "queued review" / "replied comment" instead of a bare outcome word —
-// events an installation isn't set up to act on (a plain `push`, etc.)
-// have no entry here and just fall back to the outcome alone.
-const EVENT_LABEL = {
-  pull_request: 'review',
-  issue_comment: 'comment',
-  pull_request_review_comment: 'inline comment',
-  pull_request_review: 'review comment',
-};
-
-function activityLabel(entry) {
-  const outcome = OUTCOME_LABEL[entry.outcome] || entry.outcome;
-  const action = EVENT_LABEL[entry.eventType];
-  return action ? `${outcome} ${action}` : outcome;
-}
 
 // The PR number isn't stored separately — it's already in the URL
 // (.../pull/123), so pull it back out for display rather than adding a
@@ -430,39 +400,13 @@ export default function AutomationPanel() {
 
           <div className={styles.block}>
             <div className="section-title blue">RECENT ACTIVITY</div>
-            {status.recentActivity.length === 0 ? (
-              <div className="empty-state">
-                No automated activity yet — a new PR on a watched repo gets auto-reviewed, and a comment on a PR
-                you&rsquo;re assigned to or authored gets a reply. Both show up here.
-              </div>
-            ) : (
-              <div className={styles.activityList}>
-                {status.recentActivity.map((entry) => (
-                  <div className={styles.activityRow} key={entry.id}>
-                    <span className={`${styles.activityBadge} ${styles[ACTIVITY_BADGE_CLASS[entry.outcome]] || ''}`}>
-                      {activityLabel(entry)}
-                    </span>
-                    <div className={styles.activityBody}>
-                      {entry.prUrl ? (
-                        <a href={entry.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
-                          {prNumberOf(entry.prUrl) ? `#${prNumberOf(entry.prUrl)} ` : ''}
-                          {entry.prTitle || entry.prUrl}
-                        </a>
-                      ) : (
-                        <span className={styles.activityLink}>{entry.eventType || 'event'}</span>
-                      )}
-                      {entry.reason && <span className={styles.activityReason}>{entry.reason}</span>}
-                      <span
-                        className={styles.activityTime}
-                        title={entry.deliveryId ? `GitHub delivery ${entry.deliveryId}` : undefined}
-                      >
-                        #{entry.id} · {new Date(entry.at).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <p className={styles.statusNote}>
+              {status.recentActivity.length === 0
+                ? "No automated activity yet — a new PR on a watched repo gets auto-reviewed, and a comment on a PR you're assigned to or authored gets a reply."
+                : `${status.recentActivity.length} recent event${status.recentActivity.length === 1 ? '' : 's'} recorded.`}
+              {' '}
+              <Link href="/activity">View full activity, with search &amp; filters →</Link>
+            </p>
           </div>
 
           <div className={styles.block}>
