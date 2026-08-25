@@ -11,7 +11,12 @@ export const maxDuration = 300;
 
 /**
  * POST /api/review
- * Body: { prUrl: string, token: string }
+ * Body: { prUrl: string, token: string, geminiApiKey?: string, geminiModel?: string, geminiDisabled?: boolean }
+ * `geminiApiKey`/`geminiModel` come from a user's own key entered in the
+ * Model page's unified model picker — when present they're used instead of
+ * whatever GEMINI_API_KEY the server has configured. `geminiDisabled` is set
+ * when the user explicitly picked an opencode model instead, so Gemini must
+ * be skipped even if the server has its own key configured.
  *
  * Streams newline-delimited JSON so the client can show real pipeline state
  * (fetching PR, pulling codebase tree, running AI review, ...) instead of a
@@ -25,10 +30,14 @@ export const maxDuration = 300;
  * "error" line.
  */
 export async function POST(req) {
-  const { prUrl, token } = await req.json();
+  const { prUrl, token, geminiApiKey, geminiModel, geminiDisabled } = await req.json();
 
   if (!prUrl) return NextResponse.json({ error: 'prUrl is required' }, { status: 400 });
   if (!token) return NextResponse.json({ error: 'GitHub token is required' }, { status: 400 });
+
+  const geminiOverride = geminiApiKey
+    ? { apiKey: geminiApiKey, model: geminiModel || undefined }
+    : geminiDisabled ? { disabled: true } : null;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -45,7 +54,7 @@ export async function POST(req) {
         ]);
         onProgress('files-ready', `${files.length} file(s) changed — starting analysis…`);
 
-        const review = await analyzePR(prData, files, config, token, onProgress);
+        const review = await analyzePR(prData, files, config, token, onProgress, geminiOverride);
         send({ type: 'result', data: review });
       } catch (err) {
         const { msg } = githubErrorResponse(err);

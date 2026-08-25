@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { reviewPR, postReviewToPR, approvePR, mergePR, describePR, labelPR, submitFeedback } from '../lib/api-client.js';
+import { getSavedGeminiKey, getSavedGeminiModel, getActiveModelSource } from '../lib/gemini-local.js';
 import ChatPanel from './ChatPanel.jsx';
 
 const TOKEN_KEY = 'PRISMLENS_TOKEN';
@@ -126,6 +127,23 @@ const handleSubmit = async (e) => {
   setProgressLog([]);
   setLiveFindings([]);
 
+  // Resolves the explicit choice made in the Model page's unified picker, if
+  // any. No explicit choice (source === '') leaves geminiOverride null so the
+  // server falls back to its own default (env key if set, else opencode) —
+  // unchanged from before the picker existed. A saved Gemini key with no
+  // explicit source yet is still honored, matching how connecting a key
+  // auto-selects a model on the Model page.
+  const source = getActiveModelSource();
+  const geminiKey = getSavedGeminiKey();
+  let geminiOverride = null;
+  if (source === 'gemini' && geminiKey) {
+    geminiOverride = { apiKey: geminiKey, model: getSavedGeminiModel() || undefined };
+  } else if (source === 'opencode') {
+    geminiOverride = { disabled: true };
+  } else if (!source && geminiKey) {
+    geminiOverride = { apiKey: geminiKey, model: getSavedGeminiModel() || undefined };
+  }
+
   try {
     const data = await reviewPR(prUrl.trim(), token.trim(), (evt) => {
       // "ai-finding" events carry one finding as the AI produces it — shown
@@ -135,7 +153,7 @@ const handleSubmit = async (e) => {
       } else {
         setProgressLog((log) => [...log, { ...evt, t: Date.now() }]);
       }
-    });
+    }, geminiOverride);
     setResult(data);
   } catch (err) {
     setError(err.message);
