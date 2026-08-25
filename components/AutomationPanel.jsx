@@ -30,6 +30,16 @@ export default function AutomationPanel() {
     } catch {}
   };
 
+  const [secretCopied, setSecretCopied] = useState(false);
+  const handleCopySecret = async () => {
+    if (!status?.webhookSecret) return;
+    try {
+      await navigator.clipboard.writeText(status.webhookSecret);
+      setSecretCopied(true);
+      setTimeout(() => setSecretCopied(false), 2000);
+    } catch {}
+  };
+
   const ready = status?.tokenConfigured && status?.webhookSecretConfigured;
 
   return (
@@ -91,7 +101,23 @@ export default function AutomationPanel() {
               <li>On the repo you want watched: <strong>Settings → Webhooks → Add webhook</strong>.</li>
               <li>Payload URL: the webhook URL above.</li>
               <li>Content type: <code>application/json</code>.</li>
-              <li>Secret: the same value as your <code>GITHUB_WEBHOOK_SECRET</code>.</li>
+              <li>
+                Secret: paste the value below into the GitHub webhook <strong>Secret</strong> field.
+                {status.webhookSecret ? (
+                  <div className={styles.webhookRow}>
+                    <code className={styles.webhookUrl}>{status.webhookSecret}</code>
+                    <button type="button" className="btn btn-secondary" onClick={handleCopySecret}>
+                      {secretCopied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className={styles.statusNote}>
+                    {status.webhookSecretConfigured
+                      ? 'Set, but hidden here for security — copy it from your GITHUB_WEBHOOK_SECRET env var directly.'
+                      : 'Not set yet — add GITHUB_WEBHOOK_SECRET to your env vars first.'}
+                  </p>
+                )}
+              </li>
               <li>Events: <strong>Issue comments</strong> and <strong>Pull request review comments</strong>.</li>
             </ol>
           </div>

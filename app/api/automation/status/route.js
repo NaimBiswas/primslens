@@ -6,7 +6,9 @@ export const runtime = 'nodejs';
 /**
  * GET /api/automation/status
  * Configuration + recent-activity snapshot for the Automation dashboard.
- * Never exposes the token or webhook secret values.
+ * Never exposes the token. The webhook secret is included only outside
+ * production (see getAutomationStatus in lib/services/automation.js) —
+ * this route has no auth, so a deployed instance never leaks it.
  */
 export async function GET(req) {
   const status = await getAutomationStatus();
