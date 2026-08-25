@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId } from '../lib/automation-local.js';
 import { prNumberOf } from '../lib/activity-format.js';
+import { POLL_MS } from '../lib/automation-poll.js';
 
 export default function PendingApprovalsPanel() {
   const [installationId, setInstallationId] = useState('');
@@ -12,6 +13,7 @@ export default function PendingApprovalsPanel() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [resolvingPr, setResolvingPr] = useState(null);
+  const [actionError, setActionError] = useState(null);
 
   // PRs just approved/dismissed locally — kept hidden across polls until the
   // server actually stops listing them, since approve doesn't clear the row
@@ -27,55 +29,67 @@ export default function PendingApprovalsPanel() {
     setPendingApprovals(list.filter((p) => !resolved.has(p.prUrl)));
   };
 
-  const loadPending = async (id, { silent = false } = {}) => {
+  const loadPending = useCallback(async (id, { silent = false } = {}) => {
     if (!silent) {
       setLoading(true);
       setLoadError(null);
     }
     try {
       const res = await fetch(`/api/automation/status?installationId=${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        if (!silent) {
+          const data = await res.json().catch(() => ({}));
+          setLoadError(data.error || `Request failed (${res.status})`);
+        }
+        return;
+      }
       const data = await res.json();
-      if (!res.ok) return;
       applyPending(data.pendingApprovals || []);
     } catch (err) {
       if (!silent) setLoadError(err.message);
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const saved = getSavedInstallationId();
     setInstallationId(saved);
     if (saved) loadPending(saved);
     else setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadPending]);
 
   useEffect(() => {
     if (!installationId) return;
     const tick = () => {
       if (document.visibilityState === 'visible') loadPending(installationId, { silent: true });
     };
-    const interval = setInterval(tick, 5000);
+    const interval = setInterval(tick, POLL_MS);
     document.addEventListener('visibilitychange', tick);
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', tick);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installationId]);
+  }, [installationId, loadPending]);
 
   const handleApprove = async (prUrl) => {
     setResolvingPr(prUrl);
+    setActionError(null);
     try {
-      await fetch('/api/automation/approve', {
+      const res = await fetch('/api/automation/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId, prUrl }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setActionError(data.error || `Approve failed (${res.status})`);
+        return;
+      }
       resolvedPrsRef.current.add(prUrl);
       setPendingApprovals((list) => list.filter((p) => p.prUrl !== prUrl));
+    } catch (err) {
+      setActionError(err.message);
     } finally {
       setResolvingPr(null);
     }
@@ -83,14 +97,22 @@ export default function PendingApprovalsPanel() {
 
   const handleDismiss = async (prUrl) => {
     setResolvingPr(prUrl);
+    setActionError(null);
     try {
-      await fetch('/api/automation/dismiss', {
+      const res = await fetch('/api/automation/dismiss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId, prUrl }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setActionError(data.error || `Dismiss failed (${res.status})`);
+        return;
+      }
       resolvedPrsRef.current.add(prUrl);
       setPendingApprovals((list) => list.filter((p) => p.prUrl !== prUrl));
+    } catch (err) {
+      setActionError(err.message);
     } finally {
       setResolvingPr(null);
     }
@@ -98,7 +120,7 @@ export default function PendingApprovalsPanel() {
 
   if (loading) {
     return (
-      <main className={`card ${styles.tallCard}`}>
+      <main className="card">
         <div className="loading">
           <div className="spinner" />
           <p className="loading-text">LOADING PENDING APPROVALS...</p>
@@ -109,7 +131,7 @@ export default function PendingApprovalsPanel() {
 
   if (!installationId) {
     return (
-      <main className={`card ${styles.tallCard}`}>
+      <main className="card">
         <div className="section-title blue">PENDING APPROVALS</div>
         <div className="empty-state">
           No account connected yet — connect one on the <Link href="/automation">Automation page</Link> to see fixes
@@ -120,10 +142,16 @@ export default function PendingApprovalsPanel() {
   }
 
   return (
-    <main className={`card ${styles.tallCard}`}>
+    <main className="card">
       {loadError && (
         <div className="error-block">
           <p>❌ Couldn&rsquo;t load pending approvals: {loadError}</p>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="error-block">
+          <p>❌ {actionError}</p>
         </div>
       )}
 
@@ -140,11 +168,13 @@ export default function PendingApprovalsPanel() {
             A fix was proposed on {pendingApprovals.length === 1 ? 'this PR' : `these ${pendingApprovals.length} PRs`}{' '}
             and is waiting for your confirmation before anything is committed.
           </p>
-          <div className={`${styles.activityList} ${styles.activityListScroll}`}>
-            {pendingApprovals.map((item) => (
+          <div className={styles.activityList}>
+            {pendingApprovals.map((item) => {
+              const prNum = prNumberOf(item.prUrl);
+              return (
               <div className={styles.block} key={item.prUrl}>
                 <a href={item.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
-                  {prNumberOf(item.prUrl) ? `#${prNumberOf(item.prUrl)} ` : ''}
+                  {prNum ? `#${prNum} ` : ''}
                   {item.prTitle || item.prUrl}
                 </a>
                 <pre className="review-recommendation">{item.preview}</pre>
@@ -167,7 +197,8 @@ export default function PendingApprovalsPanel() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

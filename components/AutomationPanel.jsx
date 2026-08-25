@@ -5,6 +5,7 @@ import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId, saveInstallationId } from '../lib/automation-local.js';
 import { resolveAIOverride } from '../lib/ai-local.js';
+import { POLL_MS } from '../lib/automation-poll.js';
 
 // Matches the provider registry in lib/services/ai-providers.js — just
 // enough to label the automation status line, so it doesn't need a network
@@ -76,7 +77,6 @@ export default function AutomationPanel() {
   const hasStatus = !!status;
   useEffect(() => {
     if (!installationId || !hasStatus) return;
-    const POLL_MS = 5000;
     const tick = () => {
       if (document.visibilityState === 'visible') loadStatus(installationId, { silent: true });
     };
@@ -118,16 +118,24 @@ export default function AutomationPanel() {
   const handleDisconnect = async () => {
     if (!installationId) return;
     setDisconnecting(true);
+    setConnectError(null);
     try {
-      await fetch('/api/automation/register', {
+      const res = await fetch('/api/automation/register', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId }),
       });
-    } finally {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setConnectError(data.error || 'Failed to disconnect');
+        return;
+      }
       saveInstallationId('');
       setInstallationId('');
       setStatus(null);
+    } catch (err) {
+      setConnectError(err.message);
+    } finally {
       setDisconnecting(false);
     }
   };
@@ -156,15 +164,19 @@ export default function AutomationPanel() {
   // pushed to the server explicitly rather than picked up automatically.
   const myActiveProvider = resolveAIOverride();
 
-  const handleUseMyProvider = async () => {
-    if (!myActiveProvider) return;
+  // Shared body for the two AI-config POSTs below — both flip the same
+  // "use this provider for automation" bit, the only difference is whether
+  // they spread the caller's active provider or omit it (to fall back to
+  // the server default). Keeping the fetch/error/reload flow in one place
+  // is what stops the two paths from drifting the next time one is edited.
+  const saveAIConfig = async (body) => {
     setSavingAIConfig(true);
     setAiConfigError(null);
     try {
       const res = await fetch('/api/automation/ai-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installationId, ...myActiveProvider }),
+        body: JSON.stringify({ installationId, ...body }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -177,24 +189,13 @@ export default function AutomationPanel() {
     }
   };
 
+  const handleUseMyProvider = async () => {
+    if (!myActiveProvider) return;
+    return saveAIConfig(myActiveProvider);
+  };
+
   const handleUseServerDefault = async () => {
-    setSavingAIConfig(true);
-    setAiConfigError(null);
-    try {
-      const res = await fetch('/api/automation/ai-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installationId }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setAiConfigError(data.error || 'Failed to save AI provider');
-        return;
-      }
-      await loadStatus(installationId);
-    } finally {
-      setSavingAIConfig(false);
-    }
+    return saveAIConfig({});
   };
 
   return (
