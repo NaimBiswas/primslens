@@ -9,7 +9,11 @@ Analyzes every changed file across 6 dimensions: performance, security, readabil
 prismlens/
 ├── app/                    # Next.js (App Router) — UI + API, same origin
 │   ├── page.jsx             # Landing page ("/")
-│   ├── code-review/page.jsx # Dashboard shell ("/code-review") — sidebar + tabs
+│   ├── code-review/page.jsx # Code Review page ("/code-review")
+│   ├── automation/page.jsx  # Automation page ("/automation")
+│   ├── models/page.jsx      # Model page ("/models")
+│   ├── activity/page.jsx    # Recent Activity page ("/activity")
+│   ├── pending-approvals/page.jsx # Pending Approvals page ("/pending-approvals")
 │   ├── layout.jsx
 │   └── api/
 │       ├── review/route.js             # POST /api/review
@@ -28,9 +32,12 @@ prismlens/
 │       ├── feedback/route.js           # POST /api/feedback — 👍/👎 on a finding
 │       └── webhooks/github/[installationId]/route.js # POST — PR-opened auto-review + comment-reply responder, one URL per connected account
 ├── components/
-│   ├── CodeReviewPanel.jsx  # Dashboard's "Code Review" tab
-│   ├── AutomationPanel.jsx  # Dashboard's "Automation" tab
-│   ├── ModelPanel.jsx       # Dashboard's "Model" tab (AI provider keys + model picker)
+│   ├── DashboardShell.jsx   # Shared sidebar/nav wrapping every dashboard page
+│   ├── CodeReviewPanel.jsx  # "/code-review" page content
+│   ├── AutomationPanel.jsx  # "/automation" page content
+│   ├── ModelPanel.jsx       # "/models" page content (AI provider keys + model picker)
+│   ├── ActivityPanel.jsx    # "/activity" page content (searchable/filterable event history)
+│   ├── PendingApprovalsPanel.jsx # "/pending-approvals" page content (preview/approve/dismiss)
 │   └── ChatPanel.jsx
 ├── lib/
 │   ├── api-client.js       # fetch wrapper used by the UI
@@ -105,7 +112,7 @@ npm run lint
 - **Merge PR** — one-click merge from the UI (shown when verdict is APPROVE)
 - **CLI** — terminal reviews with `--json` and `-o file` options
 - **Automated PR-comment responder** — connect your own GitHub account and react to new comments on your PRs automatically (see below) — this works for anyone using a hosted PrismLens instance, not just whoever deployed it
-- **Direct AI provider integration** — connect your own key for Gemini, OpenAI, Anthropic, Groq, OpenRouter, Mistral, or DeepSeek from the dashboard's Model tab; every model from every connected provider shows up in one searchable, scrollable list
+- **Direct AI provider integration** — connect your own key for Gemini, OpenAI, Anthropic, Groq, OpenRouter, Mistral, or DeepSeek from the Model page; every model from every connected provider shows up in one searchable, scrollable list, with the currently selected one always shown above the search box
 - **PR status at a glance** — status (open/merged/closed/draft) and assignees shown right in the results view
 
 ## Automation
@@ -114,22 +121,24 @@ PrismLens can watch your repos and act on its own — no need to open the app:
 
 - **New PR opened** → the full 6-dimension review is posted as a PR comment automatically, every time, on every PR on a watched repo.
 - **New comment on a PR you're assigned to or authored** → PrismLens replies through the same chat pipeline the interactive UI uses. It always **proposes**, never commits on its own: a fix preview when the comment implies a code change, a direct answer otherwise. The conversation is remembered per PR, so replying "commit" later actually has the earlier preview in context. Comments from bot accounts (`vercel[bot]`, `github-actions[bot]`, `dependabot[bot]`, etc.) are ignored — only comments from a real person get a reply.
-- **Pending approvals** → every proposed-but-unconfirmed fix shows up in the Automation tab with the diff, so you can review and approve it from the dashboard instead of digging through PR comments. Approving posts a `commit` comment on the PR using your own token — the same thing typing "commit" on GitHub does — so it's one consistent path either way.
+- **Pending approvals** → every proposed-but-unconfirmed fix shows up in the Automation page with the diff, so you can review and approve it from the dashboard instead of digging through PR comments. Approving posts a `commit` comment on the PR using your own token — the same thing typing "commit" on GitHub does — so it's one consistent path either way.
+- **Recent Activity page** → every webhook delivery — queued, replied, skipped, or errored — lands on its own `/activity` page with search and an outcome filter, separate from the Automation page's setup/connection info.
+- **Pending Approvals page** → every proposed-but-unconfirmed fix, across every PR, lives on its own `/pending-approvals` page with the diff and Approve/Dismiss right there — the Automation page just links to it.
 
-Automation is per-account, not per-deployment: connect your own GitHub token from the **Automation tab**, and PrismLens generates a webhook URL and secret unique to you. This is what lets someone other than whoever deployed the app use automation on their own repos — nothing is shared between accounts.
+Automation is per-account, not per-deployment: connect your own GitHub token from the **Automation page**, and PrismLens generates a webhook URL and secret unique to you. This is what lets someone other than whoever deployed the app use automation on their own repos — nothing is shared between accounts.
 
-By default, automation uses whichever AI provider the server has an env key for — which may not be the provider you picked on the Model page (and, on a free-tier key, can hit that provider's rate limit before yours does). The Automation tab has a **"Use my &lt;provider&gt; for automation"** button that points this account's automation at the same provider/key already active on the Model page, stored encrypted the same way your GitHub token is.
+By default, automation uses whichever AI provider the server has an env key for — which may not be the provider you picked on the Model page (and, on a free-tier key, can hit that provider's rate limit before yours does). The Automation page has a **"Use my &lt;provider&gt; for automation"** button that points this account's automation at the same provider/key already active on the Model page, stored encrypted the same way your GitHub token is.
 
-1. On the **Automation tab**, paste a GitHub token (repo scope) and click **Connect**. The tab then shows your own webhook URL, secret, and setup steps.
+1. On the **Automation page**, paste a GitHub token (repo scope) and click **Connect**. The page then shows your own webhook URL, secret, and setup steps.
 2. On each repo you want watched: **Settings → Webhooks → Add webhook**
-   - Payload URL: the webhook URL shown on the Automation tab
+   - Payload URL: the webhook URL shown on the Automation page
    - Content type: `application/json`
-   - Secret: the webhook secret shown on the Automation tab
+   - Secret: the webhook secret shown on the Automation page
    - Events: **Issue comments**, **Pull request review comments**, **Pull request reviews**, and **Pull requests**
 
 PrismLens reacts to a comment only when the PR is assigned to, or authored by, your connected account — and it always ignores comments it posted itself (tracked by comment id, not by author, so your own manual "commit" reply is never mistaken for its own echo).
 
-Running your own deployment? Automation needs a Postgres database (`DATABASE_URL`) and an `AUTOMATION_ENCRYPTION_KEY` to store connected accounts' tokens/secrets encrypted at rest — see [Environment Variables](docs/api.md#environment-variables). Without those set, the Automation tab still loads but connecting an account fails with a clear error telling you what's missing.
+Running your own deployment? Automation needs a Postgres database (`DATABASE_URL`) and an `AUTOMATION_ENCRYPTION_KEY` to store connected accounts' tokens/secrets encrypted at rest — see [Environment Variables](docs/api.md#environment-variables). Without those set, the Automation page still loads but connecting an account fails with a clear error telling you what's missing.
 
 ## Model Selection
 

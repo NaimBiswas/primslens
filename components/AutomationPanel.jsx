@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId, saveInstallationId } from '../lib/automation-local.js';
 import { resolveAIOverride } from '../lib/ai-local.js';
@@ -18,45 +19,6 @@ const PROVIDER_NAME = {
   deepseek: 'DeepSeek',
 };
 
-const ACTIVITY_BADGE_CLASS = {
-  received: 'activityReceived',
-  replied: 'activityReplied',
-  skipped: 'activitySkipped',
-  error: 'activityError',
-};
-
-const OUTCOME_LABEL = {
-  received: 'queued',
-  replied: 'replied',
-  skipped: 'skipped',
-  error: 'error',
-};
-
-// What kind of thing this event actually was, so the badge can read
-// "queued review" / "replied comment" instead of a bare outcome word —
-// events an installation isn't set up to act on (a plain `push`, etc.)
-// have no entry here and just fall back to the outcome alone.
-const EVENT_LABEL = {
-  pull_request: 'review',
-  issue_comment: 'comment',
-  pull_request_review_comment: 'inline comment',
-  pull_request_review: 'review comment',
-};
-
-function activityLabel(entry) {
-  const outcome = OUTCOME_LABEL[entry.outcome] || entry.outcome;
-  const action = EVENT_LABEL[entry.eventType];
-  return action ? `${outcome} ${action}` : outcome;
-}
-
-// The PR number isn't stored separately — it's already in the URL
-// (.../pull/123), so pull it back out for display rather than adding a
-// column just to hold a value derivable from one already there.
-function prNumberOf(prUrl) {
-  const match = /\/pull\/(\d+)/.exec(prUrl || '');
-  return match ? match[1] : null;
-}
-
 export default function AutomationPanel() {
   const [installationId, setInstallationId] = useState('');
   const [status, setStatus] = useState(null);
@@ -69,24 +31,8 @@ export default function AutomationPanel() {
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState(null);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [resolvingPr, setResolvingPr] = useState(null);
   const [savingAIConfig, setSavingAIConfig] = useState(false);
-
-  // PRs just approved/dismissed locally — kept hidden from every status
-  // update (including polls) until the server actually stops listing them,
-  // since approve/dismiss don't clear the row instantly (approve waits on a
-  // real webhook round trip). A ref, not state: read inside the poll
-  // interval's closure without needing to recreate that interval on change.
-  const resolvedPrsRef = useRef(new Set());
-
-  const applyStatus = (data) => {
-    const resolved = resolvedPrsRef.current;
-    const pending = data.pendingApprovals || [];
-    for (const prUrl of resolved) {
-      if (!pending.some((p) => p.prUrl === prUrl)) resolved.delete(prUrl);
-    }
-    setStatus({ ...data, pendingApprovals: pending.filter((p) => !resolved.has(p.prUrl)) });
-  };
+  const [aiConfigError, setAiConfigError] = useState(null);
 
   // `silent` is used for the background poll below — it updates the data
   // without flashing the loading spinner or bouncing to an error state over
@@ -106,7 +52,7 @@ export default function AutomationPanel() {
         setStatus(null);
         return;
       }
-      applyStatus(data);
+      setStatus(data);
     } catch (err) {
       if (!silent) setLoadError(err.message);
     } finally {
@@ -204,40 +150,6 @@ export default function AutomationPanel() {
     } catch {}
   };
 
-  const handleApprove = async (prUrl) => {
-    setResolvingPr(prUrl);
-    try {
-      await fetch('/api/automation/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installationId, prUrl }),
-      });
-      // The actual commit happens once GitHub delivers the webhook for the
-      // confirmation comment this just posted — not instant, so just drop
-      // it from the list (and keep it hidden across polls, see
-      // resolvedPrsRef) rather than waiting for a real outcome here.
-      resolvedPrsRef.current.add(prUrl);
-      setStatus((s) => (s ? { ...s, pendingApprovals: s.pendingApprovals.filter((p) => p.prUrl !== prUrl) } : s));
-    } finally {
-      setResolvingPr(null);
-    }
-  };
-
-  const handleDismiss = async (prUrl) => {
-    setResolvingPr(prUrl);
-    try {
-      await fetch('/api/automation/dismiss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installationId, prUrl }),
-      });
-      resolvedPrsRef.current.add(prUrl);
-      setStatus((s) => (s ? { ...s, pendingApprovals: s.pendingApprovals.filter((p) => p.prUrl !== prUrl) } : s));
-    } finally {
-      setResolvingPr(null);
-    }
-  };
-
   // Whatever's currently active on the Model page in *this* browser — null
   // if nothing's configured there. Automation can't see localStorage on its
   // own (it runs server-side, triggered by a webhook), so this has to be
@@ -247,12 +159,18 @@ export default function AutomationPanel() {
   const handleUseMyProvider = async () => {
     if (!myActiveProvider) return;
     setSavingAIConfig(true);
+    setAiConfigError(null);
     try {
-      await fetch('/api/automation/ai-config', {
+      const res = await fetch('/api/automation/ai-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId, ...myActiveProvider }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAiConfigError(data.error || 'Failed to save AI provider');
+        return;
+      }
       await loadStatus(installationId);
     } finally {
       setSavingAIConfig(false);
@@ -261,12 +179,18 @@ export default function AutomationPanel() {
 
   const handleUseServerDefault = async () => {
     setSavingAIConfig(true);
+    setAiConfigError(null);
     try {
-      await fetch('/api/automation/ai-config', {
+      const res = await fetch('/api/automation/ai-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAiConfigError(data.error || 'Failed to save AI provider');
+        return;
+      }
       await loadStatus(installationId);
     } finally {
       setSavingAIConfig(false);
@@ -297,7 +221,7 @@ export default function AutomationPanel() {
             you&rsquo;re assigned to or authored — this uses your token and your own webhook, so it works the same
             whether you deployed this instance or you&rsquo;re just a visitor using someone else&rsquo;s hosted copy.
             Nothing is shared with other users. Replies always propose first and wait for your confirmation before
-            committing anything — you can confirm on GitHub or from the Pending Approvals list here.
+            committing anything — you can confirm on GitHub or from the Pending Approvals page.
           </p>
           <div className={styles.block}>
             <div className={styles.connectForm}>
@@ -328,6 +252,9 @@ export default function AutomationPanel() {
 
           <div className={styles.block}>
             <div className="section-title blue">AI PROVIDER FOR AUTOMATION</div>
+            {aiConfigError && (
+              <p className={styles.connectHint}>❌ {aiConfigError}</p>
+            )}
             {status.aiProviderId ? (
               <>
                 <p className={styles.statusNote}>
@@ -360,43 +287,16 @@ export default function AutomationPanel() {
             )}
           </div>
 
-          {status.pendingApprovals.length > 0 && (
-            <div className={styles.block}>
-              <div className="section-title blue">PENDING APPROVALS</div>
-              <p className={styles.statusNote}>
-                A fix was proposed on these PRs and is waiting for your confirmation before anything is committed.
-              </p>
-              <div className={styles.activityList}>
-                {status.pendingApprovals.map((item) => (
-                  <div className={styles.block} key={item.prUrl}>
-                    <a href={item.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
-                      {prNumberOf(item.prUrl) ? `#${prNumberOf(item.prUrl)} ` : ''}
-                      {item.prTitle || item.prUrl}
-                    </a>
-                    <pre className="review-recommendation">{item.preview}</pre>
-                    <div className={styles.connectForm}>
-                      <button
-                        type="button"
-                        className="btn btn-approve"
-                        onClick={() => handleApprove(item.prUrl)}
-                        disabled={resolvingPr === item.prUrl}
-                      >
-                        {resolvingPr === item.prUrl ? 'Working…' : 'Approve'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => handleDismiss(item.prUrl)}
-                        disabled={resolvingPr === item.prUrl}
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <div className={styles.block}>
+            <div className="section-title blue">PENDING APPROVALS</div>
+            <p className={styles.statusNote}>
+              {status.pendingApprovals.length === 0
+                ? 'Nothing waiting on you right now.'
+                : `${status.pendingApprovals.length} fix${status.pendingApprovals.length === 1 ? '' : 'es'} waiting for your confirmation.`}
+              {' '}
+              <Link href="/pending-approvals">Review &amp; approve →</Link>
+            </p>
+          </div>
 
           <div className={styles.block}>
             <div className="section-title blue">WEBHOOK URL</div>
@@ -430,39 +330,13 @@ export default function AutomationPanel() {
 
           <div className={styles.block}>
             <div className="section-title blue">RECENT ACTIVITY</div>
-            {status.recentActivity.length === 0 ? (
-              <div className="empty-state">
-                No automated activity yet — a new PR on a watched repo gets auto-reviewed, and a comment on a PR
-                you&rsquo;re assigned to or authored gets a reply. Both show up here.
-              </div>
-            ) : (
-              <div className={styles.activityList}>
-                {status.recentActivity.map((entry) => (
-                  <div className={styles.activityRow} key={entry.id}>
-                    <span className={`${styles.activityBadge} ${styles[ACTIVITY_BADGE_CLASS[entry.outcome]] || ''}`}>
-                      {activityLabel(entry)}
-                    </span>
-                    <div className={styles.activityBody}>
-                      {entry.prUrl ? (
-                        <a href={entry.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
-                          {prNumberOf(entry.prUrl) ? `#${prNumberOf(entry.prUrl)} ` : ''}
-                          {entry.prTitle || entry.prUrl}
-                        </a>
-                      ) : (
-                        <span className={styles.activityLink}>{entry.eventType || 'event'}</span>
-                      )}
-                      {entry.reason && <span className={styles.activityReason}>{entry.reason}</span>}
-                      <span
-                        className={styles.activityTime}
-                        title={entry.deliveryId ? `GitHub delivery ${entry.deliveryId}` : undefined}
-                      >
-                        #{entry.id} · {new Date(entry.at).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <p className={styles.statusNote}>
+              {status.recentActivity.length === 0
+                ? "No automated activity yet — a new PR on a watched repo gets auto-reviewed, and a comment on a PR you're assigned to or authored gets a reply."
+                : `${status.recentActivity.length} recent event${status.recentActivity.length === 1 ? '' : 's'} recorded.`}
+              {' '}
+              <Link href="/activity">View full activity, with search &amp; filters →</Link>
+            </p>
           </div>
 
           <div className={styles.block}>

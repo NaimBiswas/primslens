@@ -59,6 +59,7 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.82rem;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -227,6 +228,28 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.activityListScroll {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
+.activityFilterSelect {
+  flex: 0 0 auto;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+}
+
+.activityFilterSelect option {
+  background: var(--dark-bg);
+  color: var(--text-primary);
 }
 
 .activityRow {
