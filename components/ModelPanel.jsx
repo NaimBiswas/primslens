@@ -312,9 +312,8 @@ export default function ModelPanel() {
         <div className="section-title blue">PROVIDERS</div>
         <p className={styles.statusNote}>
           opencode can talk to any provider on its list — OpenAI, Anthropic, Google, Groq, and ~190 more. Connect one
-          with its API key to add its models to the Models section below. Keys are stored by opencode itself, the
-          same place <code className="chat-inline-code">opencode providers login</code> would put them — never sent
-          anywhere else.
+          with its API key to add its models to the Models section below. Keys are stored by opencode itself and
+          never sent anywhere else.
         </p>
 
         {providerError && (
@@ -414,9 +413,8 @@ export default function ModelPanel() {
 
         {state && !state.opencodeAvailable && !geminiConnected && (
           <div className="empty-state">
-            No AI backend available yet — connect a Gemini key above, or install opencode with{' '}
-            <code className="chat-inline-code">npm install -g opencode-ai</code> and reload this page. Analysis runs
-            on the regex fallback until then.
+            No AI backend available yet — connect a Gemini key above to enable AI review. Analysis runs on the regex
+            fallback until then.
           </div>
         )}
 

@@ -170,6 +170,15 @@
   line-height: 1.6;
 }
 
+.statusNote a {
+  color: var(--neon-blue);
+  text-decoration: none;
+}
+
+.statusNote a:hover {
+  text-decoration: underline;
+}
+
 /* ─── Automation: webhook URL ─────────────────────────── */
 
 .webhookRow {
