@@ -5,6 +5,9 @@ import { loadReviewConfig } from '../../../lib/services/review-config.js';
 import { githubErrorResponse } from '../../../lib/api-error.js';
 
 export const runtime = 'nodejs';
+// AI review can shell out to opencode for several minutes on a large PR; this
+// only matters on platforms that enforce a function timeout (e.g. Vercel).
+export const maxDuration = 300;
 
 /**
  * POST /api/review
