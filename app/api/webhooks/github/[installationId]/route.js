@@ -81,21 +81,23 @@ export async function POST(req, { params }) {
   if (skip) {
     // Still worth a row — this is exactly the gap that made a real,
     // successfully-delivered webhook look like it never arrived.
-    await recordActivity(installationId, { eventType, prUrl, prTitle, outcome: 'skipped', reason: skip }).catch(() => {});
+    await recordActivity(installationId, { eventType, prUrl, prTitle, outcome: 'skipped', reason: skip, deliveryId }).catch(() => {});
     return NextResponse.json({ ok: true, skipped: skip });
   }
 
   // Show up in the queue the moment the event lands — the real outcome
   // (replied/skipped/error) can take minutes to follow, once the
-  // backgrounded AI call below finishes.
-  await recordActivity(installationId, { eventType, prUrl, prTitle, outcome: 'received' }).catch(() => {});
+  // backgrounded AI call below finishes. Carrying deliveryId through to
+  // processAutomated* lets that later outcome update this same row instead
+  // of appending a second one for the same event.
+  await recordActivity(installationId, { eventType, prUrl, prTitle, outcome: 'received', deliveryId }).catch(() => {});
 
   // Ack immediately — the actual AI review call can take minutes, far
   // longer than GitHub's webhook delivery timeout.
   after(() => {
     const task = eventType === 'pull_request'
-      ? processAutomatedPullRequest({ installationId, payload })
-      : processAutomatedComment({ installationId, eventType, payload });
+      ? processAutomatedPullRequest({ installationId, payload, deliveryId })
+      : processAutomatedComment({ installationId, eventType, payload, deliveryId });
     task.catch((err) => {
       console.error('[webhooks/github] automation failed:', err.message);
     });
