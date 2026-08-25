@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId } from '../lib/automation-local.js';
-import { ACTIVITY_BADGE_CLASS, activityLabel, prNumberOf } from '../lib/activity-format.js';
 import { POLL_MS } from '../lib/automation-poll.js';
+import { ACTIVITY_BADGE_CLASS, activityLabel, prNumberOf } from '../lib/activity-format.js';
 
 export default function ActivityPanel() {
   const [installationId, setInstallationId] = useState('');
@@ -75,7 +75,7 @@ export default function ActivityPanel() {
 
   if (loading) {
     return (
-      <main className="card">
+      <main className={`card ${styles.tallCard}`}>
         <div className="loading">
           <div className="spinner" />
           <p className="loading-text">LOADING ACTIVITY...</p>
@@ -86,7 +86,7 @@ export default function ActivityPanel() {
 
   if (!installationId) {
     return (
-      <main className="card">
+      <main className={`card ${styles.tallCard}`}>
         <div className="section-title blue">RECENT ACTIVITY</div>
         <div className="empty-state">
           No account connected yet — connect one on the <Link href="/automation">Automation page</Link> to start
@@ -97,7 +97,7 @@ export default function ActivityPanel() {
   }
 
   return (
-    <main className="card">
+    <main className={`card ${styles.tallCard}`}>
       {loadError && (
         <div className="error-block">
           <p>❌ Couldn&rsquo;t load activity: {loadError}</p>
@@ -115,7 +115,6 @@ export default function ActivityPanel() {
         <>
           <div className={styles.connectForm}>
             <input
-            style={{marginBottom:10}}
               type="text"
               placeholder="Search by PR, reason, event…"
               value={search}
