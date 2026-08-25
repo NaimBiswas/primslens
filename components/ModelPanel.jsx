@@ -141,6 +141,14 @@ export default function ModelPanel() {
 
   const isRowActive = (m) => active?.providerId === m.providerId && active?.model === m.id;
 
+  // The active model can be buried anywhere in a long, searched/scrolled
+  // list — surfaced here too so it's visible without hunting for the one
+  // row with the "Active" badge.
+  const activeModelInfo = useMemo(() => {
+    if (!active) return null;
+    return combinedModels.find((m) => m.providerId === active.providerId && m.id === active.model) || null;
+  }, [active, combinedModels]);
+
   const selectCombined = (m) => {
     setActiveBackend(m.providerId, m.id);
     setActive({ providerId: m.providerId, model: m.id });
@@ -217,6 +225,30 @@ export default function ModelPanel() {
               Every model from every connected provider, in one searchable list. Pick one to use it for review and
               chat.
             </p>
+
+            <div className={styles.block}>
+              <div className={styles.statusNote}>Selected model</div>
+              {activeModelInfo ? (
+                <div className={`${styles.modelRow} ${styles.modelRowActive}`} style={{ cursor: 'default' }}>
+                  <span className={`${styles.modelRadio} ${styles.modelRadioActive}`} />
+                  <span className={styles.modelInfo}>
+                    <span className={styles.modelName}>{activeModelInfo.name}</span>
+                    {activeModelInfo.meta && <span className={styles.modelMeta}>{activeModelInfo.meta}</span>}
+                  </span>
+                  <span className={styles.modelSourceBadge} style={badgeStyle(activeModelInfo.providerId)}>
+                    via {activeModelInfo.providerName}
+                  </span>
+                  {activeModelInfo.free && <span className={styles.modelBadgeFree}>Free</span>}
+                </div>
+              ) : active ? (
+                <div className="empty-state">
+                  Selected model &ldquo;{active.model}&rdquo; (via {active.providerId}) isn&rsquo;t available —
+                  reconnect that provider to use it again.
+                </div>
+              ) : (
+                <div className="empty-state">No model selected yet — pick one below.</div>
+              )}
+            </div>
 
             <div className={styles.block}>
               <input
