@@ -6,12 +6,17 @@ import styles from '../app/code-review/dashboard.module.css';
 // instead of one page switching client-side tab state, so a
 // link/bookmark/refresh lands back on the same section instead of always
 // resetting to Code Review.
+//
+// When you add a new dashboard page, add a `key` here that matches the
+// `active="..."` prop passed to `<DashboardShell active="...">` in the new
+// `app/*/page.jsx`. The two must stay in sync — if the `active` prop on a
+// page doesn't match any key here, the page won't appear in the sidebar.
 export const NAV_TABS = [
   { key: 'review', label: 'Code Review', href: '/code-review' },
   { key: 'automation', label: 'Automation', href: '/automation' },
-  { key: 'models', label: 'Model', href: '/models' },
   { key: 'activity', label: 'Recent Activity', href: '/activity' },
   { key: 'pending-approvals', label: 'Pending Approvals', href: '/pending-approvals' },
+  { key: 'models', label: 'Model', href: '/models' },
 ];
 
 export default function DashboardShell({ active, children }) {

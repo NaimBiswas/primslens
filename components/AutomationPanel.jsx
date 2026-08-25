@@ -5,6 +5,7 @@ import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId, saveInstallationId } from '../lib/automation-local.js';
 import { resolveAIOverride } from '../lib/ai-local.js';
+import { POLL_MS } from '../lib/automation-poll.js';
 
 // Matches the provider registry in lib/services/ai-providers.js — just
 // enough to label the automation status line, so it doesn't need a network
@@ -76,7 +77,6 @@ export default function AutomationPanel() {
   const hasStatus = !!status;
   useEffect(() => {
     if (!installationId || !hasStatus) return;
-    const POLL_MS = 5000;
     const tick = () => {
       if (document.visibilityState === 'visible') loadStatus(installationId, { silent: true });
     };
@@ -156,15 +156,18 @@ export default function AutomationPanel() {
   // pushed to the server explicitly rather than picked up automatically.
   const myActiveProvider = resolveAIOverride();
 
-  const handleUseMyProvider = async () => {
-    if (!myActiveProvider) return;
+  // Single source of truth for the two "save AI config" buttons — they
+  // differ only in the body they send (one spreads the user's current
+  // Model-page selection, the other clears it), so the try/catch,
+  // res.ok check, and post-save reloadStatus are all the same path.
+  const saveAIConfig = async (body) => {
     setSavingAIConfig(true);
     setAiConfigError(null);
     try {
       const res = await fetch('/api/automation/ai-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installationId, ...myActiveProvider }),
+        body: JSON.stringify({ installationId, ...body }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -177,24 +180,13 @@ export default function AutomationPanel() {
     }
   };
 
+  const handleUseMyProvider = async () => {
+    if (!myActiveProvider) return;
+    return saveAIConfig(myActiveProvider);
+  };
+
   const handleUseServerDefault = async () => {
-    setSavingAIConfig(true);
-    setAiConfigError(null);
-    try {
-      const res = await fetch('/api/automation/ai-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installationId }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setAiConfigError(data.error || 'Failed to save AI provider');
-        return;
-      }
-      await loadStatus(installationId);
-    } finally {
-      setSavingAIConfig(false);
-    }
+    return saveAIConfig({});
   };
 
   return (

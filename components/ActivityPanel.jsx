@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId } from '../lib/automation-local.js';
+import { POLL_MS } from '../lib/automation-poll.js';
 import { ACTIVITY_BADGE_CLASS, activityLabel, prNumberOf } from '../lib/activity-format.js';
 
 export default function ActivityPanel() {
@@ -14,30 +15,35 @@ export default function ActivityPanel() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
 
-  const loadActivity = async (id, { silent = false } = {}) => {
+  const loadActivity = useCallback(async (id, { silent = false } = {}) => {
     if (!silent) {
       setLoading(true);
       setLoadError(null);
     }
     try {
       const res = await fetch(`/api/automation/status?installationId=${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        if (!silent) {
+          const data = await res.json().catch(() => ({}));
+          setLoadError(data.error || `Request failed (${res.status})`);
+        }
+        return;
+      }
       const data = await res.json();
-      if (!res.ok) return;
       setRecentActivity(data.recentActivity || []);
     } catch (err) {
       if (!silent) setLoadError(err.message);
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const saved = getSavedInstallationId();
     setInstallationId(saved);
     if (saved) loadActivity(saved);
     else setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadActivity]);
 
   // Same live-updating behavior as the Automation page — an event can land
   // at any time, not on a schedule this page controls.
@@ -46,14 +52,13 @@ export default function ActivityPanel() {
     const tick = () => {
       if (document.visibilityState === 'visible') loadActivity(installationId, { silent: true });
     };
-    const interval = setInterval(tick, 5000);
+    const interval = setInterval(tick, POLL_MS);
     document.addEventListener('visibilitychange', tick);
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', tick);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installationId]);
+  }, [installationId, loadActivity]);
 
   const filteredActivity = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -70,7 +75,7 @@ export default function ActivityPanel() {
 
   if (loading) {
     return (
-      <main className="card">
+      <main className={`card ${styles.tallCard}`}>
         <div className="loading">
           <div className="spinner" />
           <p className="loading-text">LOADING ACTIVITY...</p>
@@ -81,7 +86,7 @@ export default function ActivityPanel() {
 
   if (!installationId) {
     return (
-      <main className="card">
+      <main className={`card ${styles.tallCard}`}>
         <div className="section-title blue">RECENT ACTIVITY</div>
         <div className="empty-state">
           No account connected yet — connect one on the <Link href="/automation">Automation page</Link> to start
@@ -92,7 +97,7 @@ export default function ActivityPanel() {
   }
 
   return (
-    <main className="card">
+    <main className={`card ${styles.tallCard}`}>
       {loadError && (
         <div className="error-block">
           <p>❌ Couldn&rsquo;t load activity: {loadError}</p>
@@ -128,7 +133,9 @@ export default function ActivityPanel() {
             <div className="empty-state">No activity matches this search/filter.</div>
           ) : (
             <div className={`${styles.activityList} ${styles.activityListScroll}`}>
-              {filteredActivity.map((entry) => (
+              {filteredActivity.map((entry) => {
+                const prNum = prNumberOf(entry.prUrl);
+                return (
                 <div className={styles.activityRow} key={entry.id}>
                   <span className={`${styles.activityBadge} ${styles[ACTIVITY_BADGE_CLASS[entry.outcome]] || ''}`}>
                     {activityLabel(entry)}
@@ -136,7 +143,7 @@ export default function ActivityPanel() {
                   <div className={styles.activityBody}>
                     {entry.prUrl ? (
                       <a href={entry.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
-                        {prNumberOf(entry.prUrl) ? `#${prNumberOf(entry.prUrl)} ` : ''}
+                        {prNum ? `#${prNum} ` : ''}
                         {entry.prTitle || entry.prUrl}
                       </a>
                     ) : (
@@ -151,7 +158,8 @@ export default function ActivityPanel() {
                     </span>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
