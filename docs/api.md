@@ -398,7 +398,7 @@ Status + recent-activity snapshot for one connected account, for the Automation 
 }
 ```
 
-`recentActivity[].outcome` is one of `replied`, `skipped` (with a `reason`), or `error` (with a `reason`). `pendingApprovals` lists PRs where a fix was proposed and is waiting for confirmation — one entry per PR, superseded by a newer proposal on the same PR.
+`recentActivity[].outcome` is one of `received` (shown as "queued" in the dashboard — the event just landed and is still being processed in the background), `replied`, `skipped` (with a `reason`), or `error` (with a `reason`). Every webhook delivery gets a `received`/`skipped` row the instant it arrives — even ones the account doesn't act on (wrong action, no body text, an unhandled event type) — so a delivery that GitHub shows as `200` always has a matching row here; a `received` row is followed by a second `replied`/`error` row once the backgrounded AI call finishes. `pendingApprovals` lists PRs where a fix was proposed and is waiting for confirmation — one entry per PR, superseded by a newer proposal on the same PR.
 
 ## `POST /api/automation/approve`
 
