@@ -89,15 +89,17 @@ export async function POST(req, { params }) {
   // (replied/skipped/error) can take minutes to follow, once the
   // backgrounded AI call below finishes. Carrying deliveryId through to
   // processAutomated* lets that later outcome update this same row instead
-  // of appending a second one for the same event.
-  await recordActivity(installationId, { eventType, prUrl, prTitle, outcome: 'received', deliveryId }).catch(() => {});
+  // of appending a second one for the same event; carrying the row's own id
+  // lets the reply actually posted to GitHub cite it, so a GitHub comment
+  // can be matched back to its dashboard row.
+  const activityId = await recordActivity(installationId, { eventType, prUrl, prTitle, outcome: 'received', deliveryId }).catch(() => undefined);
 
   // Ack immediately — the actual AI review call can take minutes, far
   // longer than GitHub's webhook delivery timeout.
   after(() => {
     const task = eventType === 'pull_request'
-      ? processAutomatedPullRequest({ installationId, payload, deliveryId })
-      : processAutomatedComment({ installationId, eventType, payload, deliveryId });
+      ? processAutomatedPullRequest({ installationId, payload, deliveryId, activityId })
+      : processAutomatedComment({ installationId, eventType, payload, deliveryId, activityId });
     task.catch((err) => {
       console.error('[webhooks/github] automation failed:', err.message);
     });
