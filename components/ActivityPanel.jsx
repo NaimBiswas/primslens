@@ -115,6 +115,7 @@ export default function ActivityPanel() {
         <>
           <div className={styles.connectForm}>
             <input
+            style={{marginBottom:10}}
               type="text"
               placeholder="Search by PR, reason, event…"
               value={search}
