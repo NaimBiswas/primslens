@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 // Chat can shell out to opencode for up to 1200s (20 min); this only matters
 // on platforms that enforce a function timeout. Self-hosted (`next start`)
 // has none, so this is documentation of intent more than an enforced limit.
-export const maxDuration = 1200;
+export const maxDuration = 300;
 
 /**
  * POST /api/chat
