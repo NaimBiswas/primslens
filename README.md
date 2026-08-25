@@ -43,8 +43,7 @@ prismlens/
 │   ├── api-client.js       # fetch wrapper used by the UI
 │   ├── ai-local.js         # client-side storage for provider keys + active model (localStorage)
 │   ├── automation-local.js # client-side storage for "which automation installation is mine"
-│   ├── automation-poll.js  # shared POLL_MS constant for status polls
-│   ├── activity-format.js  # shared labels/classes for the activity feed
+│   ├── automation-poll.js  # shared POLL_MS constant for the dashboard's status polls
 │   ├── webhook-verify.js   # GitHub webhook signature verification
 │   └── services/
 │       ├── github.js       # GitHub API (fetch, post review, merge, reply, describe, label, commit)
