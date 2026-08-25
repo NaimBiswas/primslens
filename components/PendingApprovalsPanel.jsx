@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId } from '../lib/automation-local.js';
-import { prNumberOf } from '../lib/activity-format.js';
 import { POLL_MS } from '../lib/automation-poll.js';
+import { prNumberOf } from '../lib/activity-format.js';
 
 export default function PendingApprovalsPanel() {
   const [installationId, setInstallationId] = useState('');
@@ -120,7 +120,7 @@ export default function PendingApprovalsPanel() {
 
   if (loading) {
     return (
-      <main className="card">
+      <main className={`card ${styles.tallCard}`}>
         <div className="loading">
           <div className="spinner" />
           <p className="loading-text">LOADING PENDING APPROVALS...</p>
@@ -131,7 +131,7 @@ export default function PendingApprovalsPanel() {
 
   if (!installationId) {
     return (
-      <main className="card">
+      <main className={`card ${styles.tallCard}`}>
         <div className="section-title blue">PENDING APPROVALS</div>
         <div className="empty-state">
           No account connected yet — connect one on the <Link href="/automation">Automation page</Link> to see fixes
@@ -142,7 +142,7 @@ export default function PendingApprovalsPanel() {
   }
 
   return (
-    <main className="card">
+    <main className={`card ${styles.tallCard}`}>
       {loadError && (
         <div className="error-block">
           <p>❌ Couldn&rsquo;t load pending approvals: {loadError}</p>
@@ -168,7 +168,7 @@ export default function PendingApprovalsPanel() {
             A fix was proposed on {pendingApprovals.length === 1 ? 'this PR' : `these ${pendingApprovals.length} PRs`}{' '}
             and is waiting for your confirmation before anything is committed.
           </p>
-          <div className={styles.activityList}>
+          <div className={`${styles.activityList} ${styles.activityListScroll}`}>
             {pendingApprovals.map((item) => {
               const prNum = prNumberOf(item.prUrl);
               return (
