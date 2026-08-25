@@ -1,6 +1,6 @@
 # PrismLens
 
-Opencode-style PR review tool with cyberpunk glassmorphism UI and CLI.  
+AI-powered PR review tool with cyberpunk glassmorphism UI and CLI.  
 Analyzes every changed file across 6 dimensions: performance, security, readability, bugs, scalability, and best practices.
 
 ## Structure
@@ -18,30 +18,36 @@ prismlens/
 │       ├── review/merge/route.js       # POST /api/review/merge
 │       ├── chat/route.js               # POST /api/chat
 │       ├── health/route.js             # GET /api/health
-│       ├── automation/status/route.js  # GET /api/automation/status
-│       ├── model/route.js              # GET/POST /api/model
-│       ├── providers/route.js          # GET/POST/DELETE /api/providers
+│       ├── automation/register/route.js # POST/DELETE /api/automation/register — connect/disconnect a GitHub account
+│       ├── automation/status/route.js  # GET /api/automation/status — one connected account's status
+│       ├── ai/models/route.js          # GET/POST /api/ai/models — provider registry + live model listing
 │       ├── review/describe/route.js    # POST /api/review/describe — auto-generated PR description
 │       ├── review/label/route.js       # POST /api/review/label — size/risk labels
 │       ├── feedback/route.js           # POST /api/feedback — 👍/👎 on a finding
-│       └── webhooks/github/route.js    # POST /api/webhooks/github — automated PR-comment responder
+│       └── webhooks/github/[installationId]/route.js # POST — automated PR-comment responder, one URL per connected account
 ├── components/
 │   ├── CodeReviewPanel.jsx  # Dashboard's "Code Review" tab
 │   ├── AutomationPanel.jsx  # Dashboard's "Automation" tab
-│   ├── ModelPanel.jsx       # Dashboard's "Model" tab (models + provider connections)
+│   ├── ModelPanel.jsx       # Dashboard's "Model" tab (AI provider keys + model picker)
 │   └── ChatPanel.jsx
 ├── lib/
 │   ├── api-client.js       # fetch wrapper used by the UI
+│   ├── ai-local.js         # client-side storage for provider keys + active model (localStorage)
+│   ├── automation-local.js # client-side storage for "which automation installation is mine"
 │   ├── webhook-verify.js   # GitHub webhook signature verification
 │   └── services/
-│       ├── github.js       # GitHub API (fetch, post review, merge, reply, describe, label)
+│       ├── github.js       # GitHub API (fetch, post review, merge, reply, describe, label, commit)
 │       ├── analyzer.js     # 6-dimension per-file review engine + orchestrates config/dep-scan
-│       ├── automation.js   # webhook → analyze comment → reply pipeline
-│       ├── models.js       # lists opencode's free models + connected-provider models
-│       ├── providers.js    # models.dev catalog + opencode's credential store
+│       ├── automation.js   # webhook → analyze comment → reply pipeline, per connected account
+│       ├── installations.js # Postgres-backed store for connected accounts (encrypted tokens/secrets)
+│       ├── crypto.js       # AES-256-GCM encrypt/decrypt for credentials at rest
+│       ├── ai-providers.js # registry of supported AI providers (Gemini, OpenAI, Anthropic, Groq, OpenRouter, Mistral, DeepSeek)
+│       ├── ai-models.js    # live model listing per provider
+│       ├── ai-review.js    # streams one AI provider's review findings
+│       ├── ai-chat.js      # tool-calling chat loop (read_file/commit_file) per provider
 │       ├── review-config.js # loads per-repo .prismlens.json (ignore paths, severity overrides, disabled checks)
 │       ├── dependency-scan.js # OSV.dev vulnerability scan for package.json
-│       ├── json-value-stream.js # streams one JSON finding object per line from opencode's stdout
+│       ├── json-value-stream.js # streams one JSON finding object per line from an AI provider's response
 │       └── feedback.js     # 👍/👎 log, feeds "avoid patterns like this" back into the AI prompt
 ├── cmd/index.js            # CLI tool (imports analyzer directly)
 ├── scripts/                # local tooling (e.g. scripts/lint.js)
@@ -82,7 +88,7 @@ npm run lint
 - **6-dimension analysis** — every file checked for performance, security, readability, bugs, scalability, and best practices
 - **Severity levels** — critical, high, medium, low with visual badges
 - **Live review progress** — the dashboard streams the real pipeline as it runs: pulling the codebase tree, running the AI review, scanning dependencies, each step with a live running-time readout, plus a live feed of findings as the AI emits them (no opaque "analyzing…" spinner)
-- **Transparent fallback** — if the AI path is unavailable (opencode not found, errors, or times out), a banner says so and why; partial AI findings found before a timeout are kept rather than thrown away, and the regex fallback runs language-agnostic checks instead
+- **Transparent fallback** — if the AI path is unavailable (no provider key configured, an API error, or a timeout), a banner says so and why; partial AI findings found before a timeout are kept rather than thrown away, and the regex fallback runs language-agnostic checks instead
 - **Language-aware checks** — JS/TS-specific heuristics (`==` coercion, optional chaining, sync I/O, React APIs) only apply to JS/TS files, so Go/Python/Rust/etc. don't get false-positive "bugs" from idioms those languages use legitimately
 - **Richer PR comments & descriptions** — emoji-coded severity/verdict badges (🔴🟠🟡🟢), an at-a-glance per-dimension overview table, and syntax-highlighted, language-tagged code suggestions (```` ```js ```` / ```` ```py ````) in both the posted review and the auto-generated PR description
 - **Post to PR** — submit the review as a GitHub PR review comment, with syntax-highlighted code blocks (language-tagged per file, e.g. ```js / ```py) showing a concrete fix across every category, not just performance
@@ -96,35 +102,32 @@ npm run lint
 - **Documentation generation** — ask the chat to document a file or function; same preview-then-confirm-then-commit flow as a fix
 - **Merge PR** — one-click merge from the UI (shown when verdict is APPROVE)
 - **CLI** — terminal reviews with `--json` and `-o file` options
-- **Automated PR-comment responder** — react to new comments on PRs assigned to or authored by you, automatically (see below)
-- **Free model picker** — choose which of opencode's own free models (no API key, no cost) powers review and chat, from the dashboard's Model tab
-- **Bring your own provider** — connect any opencode-supported provider (OpenAI, Anthropic, Google, ~190 more) with an API key and pick from its models too, same tab
+- **Automated PR-comment responder** — connect your own GitHub account and react to new comments on your PRs automatically (see below) — this works for anyone using a hosted PrismLens instance, not just whoever deployed it
+- **Direct AI provider integration** — connect your own key for Gemini, OpenAI, Anthropic, Groq, OpenRouter, Mistral, or DeepSeek from the dashboard's Model tab; every model from every connected provider shows up in one searchable, scrollable list
 - **PR status at a glance** — status (open/merged/closed/draft) and assignees shown right in the results view
 
 ## Automation
 
-Once configured, PrismLens can watch your PRs and respond to new comments on its own — no need to open the app. It always **proposes**, never commits on its own: a fix preview when the comment implies a code change, a direct answer otherwise.
+PrismLens can watch your PRs and respond to new comments on its own — no need to open the app. It always **proposes**, never commits on its own: a fix preview when the comment implies a code change, a direct answer otherwise.
 
-The **Automation tab** in the dashboard (`/code-review`) shows live setup status — which env vars are set, the account being watched, the webhook URL (copyable), and a recent-activity feed — so you don't have to guess whether it's working. Setup itself is still two manual steps outside the app:
+Automation is per-account, not per-deployment: connect your own GitHub token from the **Automation tab**, and PrismLens generates a webhook URL and secret unique to you. This is what lets someone other than whoever deployed the app use automation on their own repos — nothing is shared between accounts.
 
-1. Set two env vars (in addition to `GITHUB_TOKEN`, which the automation reuses):
-   ```bash
-   GITHUB_WEBHOOK_SECRET=<a secret you make up>
-   ```
-2. Get `/api/webhooks/github` reachable from the internet — deploy PrismLens somewhere public, or run a tunnel (e.g. `ngrok http 3000`) for local testing.
-3. On each repo you want watched: **Settings → Webhooks → Add webhook** (the Automation tab shows the exact URL and steps)
-   - Payload URL: `https://<your-host>/api/webhooks/github`
+1. On the **Automation tab**, paste a GitHub token (repo scope) and click **Connect**. The tab then shows your own webhook URL, secret, and setup steps.
+2. On each repo you want watched: **Settings → Webhooks → Add webhook**
+   - Payload URL: the webhook URL shown on the Automation tab
    - Content type: `application/json`
-   - Secret: the same value as `GITHUB_WEBHOOK_SECRET`
+   - Secret: the webhook secret shown on the Automation tab
    - Events: **Issue comments** and **Pull request review comments**
 
-PrismLens reacts to a comment only when the PR is assigned to, or authored by, the account `GITHUB_TOKEN` belongs to — and it always ignores comments it posted itself, so it never replies to its own replies.
+PrismLens reacts to a comment only when the PR is assigned to, or authored by, your connected account — and it always ignores comments it posted itself, so it never replies to its own replies.
+
+Running your own deployment? Automation needs a Postgres database (`DATABASE_URL`) and an `AUTOMATION_ENCRYPTION_KEY` to store connected accounts' tokens/secrets encrypted at rest — see [Environment Variables](docs/api.md#environment-variables). Without those set, the Automation tab still loads but connecting an account fails with a clear error telling you what's missing.
 
 ## Model Selection
 
-opencode ships several models on its own `opencode` provider that are free to use — no API key, no cost. The dashboard's **Model tab** lists them and lets you pick one; the choice applies to every review, chat, and automated reply from then on, and persists across restarts. Leaving it on "opencode default" uses whatever opencode itself is configured to default to.
+The dashboard's **Model tab** lets you connect your own API key for any of seven providers — Gemini, OpenAI, Anthropic, Groq, OpenRouter, Mistral, DeepSeek — each called directly over HTTPS (no CLI, no install, works the same locally and deployed). Every model from every connected provider shows up in one searchable list below, each labeled with its source and colored accordingly; pick one and it's used for review, chat, and (once connected) your own automation replies.
 
-opencode can also talk to any of the ~190 providers it supports (OpenAI, Anthropic, Google, Groq, and the rest) — the same tab's **Providers** section lets you search for one and connect it with an API key. The key goes straight into opencode's own credential store, not PrismLens's; once connected, that provider's models (real pricing shown, never hidden as free) join the picker above. Disconnect a provider the same way, from the chip next to its name.
+A host can also set any provider's `*_API_KEY` env var to make AI review/chat work out of the box for visitors who haven't connected their own key — see [Environment Variables](docs/api.md#environment-variables).
 
 ## Custom Review Config
 
@@ -163,11 +166,11 @@ Every finding has 👍/👎 buttons. This isn't a hosted learning system — the
 | POST | `/api/review/merge` | Merge the pull request |
 | POST | `/api/chat` | Chat (incl. doc generation) |
 | GET | `/api/health` | Server health check |
-| GET | `/api/automation/status` | Live automation setup status |
-| GET/POST | `/api/model` | Selected model (opencode free + connected providers) |
-| GET/POST/DELETE | `/api/providers` | Connect/disconnect opencode-supported providers |
+| POST/DELETE | `/api/automation/register` | Connect/disconnect a GitHub account for automation |
+| GET | `/api/automation/status` | One connected account's status + recent activity |
+| GET/POST | `/api/ai/models` | Provider registry + live model listing for a given key |
 | POST | `/api/feedback` | 👍/👎 on a finding |
-| POST | `/api/webhooks/github` | Automated PR-comment responder (called by GitHub, not the client) |
+| POST | `/api/webhooks/github/[installationId]` | Automated PR-comment responder (called by GitHub, not the client) |
 
 Full API reference: [`docs/api.md`](docs/api.md)
 

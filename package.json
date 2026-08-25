@@ -25,6 +25,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "axios": "^1.16.1",
     "commander": "^14.0.3",
     "dotenv": "^17.4.2",

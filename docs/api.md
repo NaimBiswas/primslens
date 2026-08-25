@@ -316,13 +316,41 @@ Server health check.
 
 ---
 
-## `POST /api/webhooks/github`
+## `POST /api/automation/register`
 
-Receives GitHub webhook deliveries for automated PR-comment responses. Not called by the client — GitHub calls this directly once a webhook is registered on a repo (Settings → Webhooks → Add webhook), subscribed to the **Issue comments** and **Pull request review comments** events.
+Connects a GitHub account for automation. Anyone can call this with their own token — there's no server-wide credential, so this is what lets someone other than whoever deployed the app use automation on their own repos. Stores the token and a freshly generated webhook secret encrypted at rest (see `AUTOMATION_ENCRYPTION_KEY` below) and returns a unique installation id that both the webhook URL and every later status lookup are keyed on.
 
-Requires `GITHUB_TOKEN` and `GITHUB_WEBHOOK_SECRET` to be set server-side (see below); otherwise every delivery is rejected with `501` before any processing.
+### Request
 
-For a `created` comment on a PR assigned to or authored by the `GITHUB_TOKEN` owner, PrismLens runs the same analysis + chat pipeline the interactive UI uses and replies on the PR — a fix preview if the comment implies a code change, a direct answer otherwise. It never commits on its own.
+```json
+{ "githubToken": "ghp_...", "label": "optional name" }
+```
+
+### Response
+
+```json
+{ "installationId": "5e8b3c...-uuid", "webhookSecret": "a1b2c3..." }
+```
+
+## `DELETE /api/automation/register`
+
+Disconnects an account — deletes its stored token, webhook secret, and activity history.
+
+### Request
+
+```json
+{ "installationId": "5e8b3c...-uuid" }
+```
+
+---
+
+## `POST /api/webhooks/github/[installationId]`
+
+Receives GitHub webhook deliveries for automated PR-comment responses. Not called by the client — GitHub calls this directly once a webhook is registered on a repo (Settings → Webhooks → Add webhook) using the URL returned by `POST /api/automation/register`, subscribed to the **Issue comments** and **Pull request review comments** events.
+
+`installationId` looks up that one connected account's own token and webhook secret — there's no shared server config to fall back on, so an unknown id is rejected outright.
+
+For a `created` comment on a PR assigned to or authored by that account's own login, PrismLens runs the same analysis + chat pipeline the interactive UI uses and replies on the PR — a fix preview if the comment implies a code change, a direct answer otherwise. It never commits on its own.
 
 ### Request
 
@@ -331,7 +359,7 @@ Sent by GitHub, not something you call directly. Key headers:
 | Header | Description |
 |--------|-------------|
 | `X-GitHub-Event` | `issue_comment` or `pull_request_review_comment` — anything else is a no-op |
-| `X-Hub-Signature-256` | `sha256=<hmac>` of the raw body, keyed with `GITHUB_WEBHOOK_SECRET` |
+| `X-Hub-Signature-256` | `sha256=<hmac>` of the raw body, keyed with this installation's own webhook secret |
 | `X-GitHub-Delivery` | Unique delivery ID, used to ignore GitHub's occasional redeliveries |
 
 ### Response
@@ -341,27 +369,28 @@ Sent by GitHub, not something you call directly. Key headers:
 | 200 | Accepted — acknowledged immediately; the actual analysis (which can take minutes) runs after the response is sent |
 | 400 | Malformed JSON body |
 | 401 | Missing or invalid `X-Hub-Signature-256` |
-| 501 | `GITHUB_TOKEN` or `GITHUB_WEBHOOK_SECRET` not configured |
+| 404 | Unknown `installationId` (never registered, or since disconnected) |
+| 501 | `DATABASE_URL`/`AUTOMATION_ENCRYPTION_KEY` not configured on the server |
 
-A `200` with `{ "skipped": "<reason>" }` means the event was received but wasn't relevant (not a PR comment, not a `created` action, or the PR isn't assigned to/authored by the token owner) — this is normal, not an error.
+A `200` with `{ "skipped": "<reason>" }` means the event was received but wasn't relevant (not a PR comment, not a `created` action, or the PR isn't assigned to/authored by the account's own login) — this is normal, not an error.
 
 ---
 
-## `GET /api/automation/status`
+## `GET /api/automation/status?installationId=...`
 
-Configuration + recent-activity snapshot for the Automation tab in the dashboard (`/code-review`). Never returns the token or webhook secret values — booleans only, plus the public GitHub login they resolve to.
+Status + recent-activity snapshot for one connected account, for the Automation tab in the dashboard (`/code-review`). The webhook secret here is safe to return in any environment — it's specific to this one installation, not a value shared by every user of the app.
 
 ### Response
 
 ```json
 {
-  "tokenConfigured": true,
-  "webhookSecretConfigured": false,
+  "id": "5e8b3c...-uuid",
   "botLogin": "octocat",
+  "webhookSecret": "a1b2c3...",
   "recentActivity": [
-    { "at": "2026-08-24T10:00:00.000Z", "prUrl": "https://github.com/o/r/pull/1", "eventType": "issue_comment", "outcome": "replied", "prTitle": "Fix rate limiter" }
+    { "at": "2026-08-24T10:00:00.000Z", "prUrl": "https://github.com/o/r/pull/1", "outcome": "replied", "prTitle": "Fix rate limiter" }
   ],
-  "webhookUrl": "https://your-host/api/webhooks/github"
+  "webhookUrl": "https://your-host/api/webhooks/github/5e8b3c...-uuid"
 }
 ```
 
@@ -369,72 +398,24 @@ Configuration + recent-activity snapshot for the Automation tab in the dashboard
 
 ---
 
-## `GET /api/model`
+## `GET /api/ai/models`
 
-Lists opencode's free models (the `opencode` provider, cost 0 — no API key needed) and the currently selected one, for the Model tab in the dashboard.
+The static registry of AI providers PrismLens can call directly (Gemini, OpenAI, Anthropic, Groq, OpenRouter, Mistral, DeepSeek) — id, name, key placeholder, docs link. No credentials, just enough for the Model tab to render a key-input row per provider.
+
+## `POST /api/ai/models`
+
+Validates a user-supplied API key by asking that provider itself which models it exposes.
+
+### Request
+
+```json
+{ "providerId": "gemini", "apiKey": "AIza..." }
+```
 
 ### Response
 
 ```json
-{
-  "models": [
-    { "id": "opencode/hy3-free", "name": "Hy3 Free", "context": 190000 }
-  ],
-  "selected": "opencode/hy3-free",
-  "opencodeAvailable": true
-}
-```
-
-`selected: null` means no override is set — review and chat runs use whatever opencode itself is configured to default to. `opencodeAvailable: false` means the `opencode` CLI isn't installed at all (same condition the regex-fallback analyzer falls back for).
-
-## `POST /api/model`
-
-Sets the model used for future `/api/review` and `/api/chat` runs (and the webhook automation, which shares the same analyzer/chat code). Persisted to `.prismlens-config.json` at the project root, so it survives a restart.
-
-### Request
-
-```json
-{ "model": "opencode/hy3-free" }
-```
-
-Pass `{ "model": null }` to clear the override and go back to opencode's own default. Any other value must match an `id` from `GET /api/model`'s list — `400` otherwise.
-
-`GET /api/model`'s list now includes models from every provider connected via `/api/providers` below, not just opencode's free ones — each entry carries `cost` and `free` so paid models are never presented as if they were free.
-
----
-
-## `GET /api/providers`
-
-Every provider opencode/models.dev knows about (~190) — name, required env var(s), docs link, model count, and whether a credential is already configured. Slim payload, no per-model detail.
-
-### Response
-
-```json
-{
-  "providers": [
-    { "id": "openai", "name": "OpenAI", "envVars": ["OPENAI_API_KEY"], "doc": "https://platform.openai.com/docs/models", "modelCount": 47, "configured": false }
-  ]
-}
-```
-
-## `POST /api/providers`
-
-Saves an API key for a provider — to opencode's own credential store (`~/.local/share/opencode/auth.json`), the same file `opencode providers login` writes to. Never echoed back in any response.
-
-### Request
-
-```json
-{ "providerId": "openai", "apiKey": "sk-..." }
-```
-
-## `DELETE /api/providers`
-
-Removes a provider's credential. If the currently selected model (`GET /api/model`) belonged to that provider, the selection is reset to opencode's default too, so nothing is left pointing at a now-unusable model.
-
-### Request
-
-```json
-{ "providerId": "openai" }
+{ "models": [{ "id": "gemini-3.6-flash", "name": "Gemini 3.6 Flash", "meta": "1.0M context", "free": false }] }
 ```
 
 ---
@@ -443,8 +424,10 @@ Removes a provider's credential. If the currently selected model (`GET /api/mode
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `GITHUB_TOKEN` | For CLI and automation | — | Used by the CLI, and by `/api/webhooks/github` to act on your behalf. The web UI is unaffected — it still takes a token per request. |
-| `GITHUB_WEBHOOK_SECRET` | For automation only | — | Shared secret configured when registering the webhook on GitHub; verifies deliveries actually came from GitHub. |
+| `GITHUB_TOKEN` | For the CLI only | — | Used by `cmd/index.js`. The web UI takes a token per request instead, and Automation takes its own token per connected account (see below) — neither reads this var. |
+| `DATABASE_URL` | For Automation | — | Postgres connection string storing each connected account's encrypted token/webhook secret. Vercel's native Postgres (Neon) integration sets this automatically once attached in the dashboard. |
+| `AUTOMATION_ENCRYPTION_KEY` | For Automation | — | Any string; hashed into the AES-256-GCM key used to encrypt stored tokens/secrets at rest. Generate with `openssl rand -base64 32`. Changing it after accounts connect invalidates their stored credentials. |
+| `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` / `OPENROUTER_API_KEY` / `MISTRAL_API_KEY` / `DEEPSEEK_API_KEY` | No | — | Server-wide AI review/chat backend — set any one to enable it without visitors needing to connect their own key in the Model tab. Each has an optional matching `*_MODEL` var. |
 | `PORT` | No | 3000 | Server port |
 
 ---
