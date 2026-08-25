@@ -353,8 +353,8 @@ export default function AutomationPanel() {
               </div>
             ) : (
               <div className={styles.activityList}>
-                {status.recentActivity.map((entry, i) => (
-                  <div className={styles.activityRow} key={i}>
+                {status.recentActivity.map((entry) => (
+                  <div className={styles.activityRow} key={entry.id}>
                     <span className={`${styles.activityBadge} ${styles[ACTIVITY_BADGE_CLASS[entry.outcome]] || ''}`}>
                       {activityLabel(entry)}
                     </span>
@@ -368,7 +368,12 @@ export default function AutomationPanel() {
                         <span className={styles.activityLink}>{entry.eventType || 'event'}</span>
                       )}
                       {entry.reason && <span className={styles.activityReason}>{entry.reason}</span>}
-                      <span className={styles.activityTime}>{new Date(entry.at).toLocaleString()}</span>
+                      <span
+                        className={styles.activityTime}
+                        title={entry.deliveryId ? `GitHub delivery ${entry.deliveryId}` : undefined}
+                      >
+                        #{entry.id} · {new Date(entry.at).toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 ))}
