@@ -7,10 +7,10 @@ import styles from '../app/code-review/dashboard.module.css';
 // link/bookmark/refresh lands back on the same section instead of always
 // resetting to Code Review.
 //
-// NAV_TABS is the single source of truth for the sidebar. When you add a
-// new dashboard page under app/*/page.jsx, add a matching `{ key, label,
-// href }` entry here so it appears in the nav; the `active` prop passed to
-// <DashboardShell active="…"> in that page must use the same `key`.
+// When you add a new dashboard page, add a `key` here that matches the
+// `active="..."` prop passed to `<DashboardShell active="...">` in the new
+// `app/*/page.jsx`. The two must stay in sync — if the `active` prop on a
+// page doesn't match any key here, the page won't appear in the sidebar.
 export const NAV_TABS = [
   { key: 'review', label: 'Code Review', href: '/code-review' },
   { key: 'automation', label: 'Automation', href: '/automation' },
