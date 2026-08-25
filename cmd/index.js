@@ -8,7 +8,7 @@ const program = new Command();
 
 program
   .name('prismlens')
-  .description('PrismLens CLI — opencode-style code review analysis')
+  .description('PrismLens CLI — AI-powered code review analysis')
   .version('1.0.0');
 
 const CATEGORIES = [
@@ -60,7 +60,7 @@ program
       console.log(`  Author:  ${meta.prAuthor}`);
       console.log(`  Files:   ${meta.stats.filesChanged}  (+${meta.stats.additions}/-${meta.stats.deletions})`);
       console.log(`  Branch:  ${meta.branch || '?'}`);
-      console.log(`  Mode:    ${meta.analysisMode === 'ai' ? 'AI (opencode)' : 'regex fallback'}`);
+      console.log(`  Mode:    ${meta.analysisMode === 'ai' ? `AI (${meta.aiProvider || 'unknown provider'})` : 'regex fallback'}`);
       if (meta.analysisMode === 'fallback' && meta.fallbackReason) {
         console.log(`  Reason:  ${meta.fallbackReason}`);
       }

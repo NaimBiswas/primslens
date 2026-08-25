@@ -7,7 +7,7 @@ import { join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
-const SKIP = new Set(['node_modules', '.next', '.git', '.opencode', '.claude', '.impeccable']);
+const SKIP = new Set(['node_modules', '.next', '.git', '.claude', '.impeccable']);
 
 let checked = 0;
 let failed = false;

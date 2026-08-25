@@ -414,24 +414,6 @@
   border: 1px solid var(--glass-border);
 }
 
-.modelSourceOpencode {
-  color: var(--neon-purple);
-  background: rgba(177, 55, 252, 0.1);
-  border-color: rgba(177, 55, 252, 0.3);
-}
-
-.modelSourceGemini {
-  color: var(--neon-pink);
-  background: rgba(255, 42, 109, 0.1);
-  border-color: rgba(255, 42, 109, 0.3);
-}
-
-.modelSourceProvider {
-  color: var(--neon-blue);
-  background: rgba(5, 217, 232, 0.1);
-  border-color: rgba(5, 217, 232, 0.3);
-}
-
 .modelBadgeFree {
   flex-shrink: 0;
   font-family: 'Orbitron', sans-serif;

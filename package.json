@@ -1,7 +1,7 @@
 {
   "name": "prismlens",
   "version": "1.0.0",
-  "description": "PrismLens — Opencode-style code review with cyberpunk glassmorphism UI",
+  "description": "PrismLens — AI-powered code review with cyberpunk glassmorphism UI",
   "type": "module",
   "scripts": {
     "dev": "next dev",
@@ -18,7 +18,7 @@
     "pr-review",
     "code-review",
     "cyberpunk",
-    "opencode",
+    "ai",
     "analysis",
     "nextjs"
   ],
@@ -29,7 +29,6 @@
     "commander": "^14.0.3",
     "dotenv": "^17.4.2",
     "next": "^16.3.2",
-    "opencode-ai": "^1.18.21",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   }
