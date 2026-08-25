@@ -118,6 +118,8 @@ PrismLens can watch your repos and act on its own — no need to open the app:
 
 Automation is per-account, not per-deployment: connect your own GitHub token from the **Automation tab**, and PrismLens generates a webhook URL and secret unique to you. This is what lets someone other than whoever deployed the app use automation on their own repos — nothing is shared between accounts.
 
+By default, automation uses whichever AI provider the server has an env key for — which may not be the provider you picked on the Model page (and, on a free-tier key, can hit that provider's rate limit before yours does). The Automation tab has a **"Use my &lt;provider&gt; for automation"** button that points this account's automation at the same provider/key already active on the Model page, stored encrypted the same way your GitHub token is.
+
 1. On the **Automation tab**, paste a GitHub token (repo scope) and click **Connect**. The tab then shows your own webhook URL, secret, and setup steps.
 2. On each repo you want watched: **Settings → Webhooks → Add webhook**
    - Payload URL: the webhook URL shown on the Automation tab
