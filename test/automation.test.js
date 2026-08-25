@@ -65,3 +65,34 @@ test('skipReason: pull_request_review_comment with action=created proceeds', () 
 test('skipReason: unhandled event types are skipped', () => {
   assert.match(skipReason('pull_request', { action: 'opened' }), /unhandled event type/);
 });
+
+test('skipReason: pull_request_review submitted with a body proceeds', () => {
+  const reason = skipReason('pull_request_review', {
+    action: 'submitted',
+    pull_request: { number: 1 },
+    review: { body: 'Looks good, one nit below' },
+  });
+  assert.equal(reason, null);
+});
+
+test('skipReason: pull_request_review with no body text is skipped', () => {
+  assert.match(
+    skipReason('pull_request_review', { action: 'submitted', review: { body: '' } }),
+    /no body text/
+  );
+  assert.match(
+    skipReason('pull_request_review', { action: 'submitted', review: { body: '   ' } }),
+    /no body text/
+  );
+  assert.match(
+    skipReason('pull_request_review', { action: 'submitted' }),
+    /no body text/
+  );
+});
+
+test('skipReason: pull_request_review with a non-submitted action is skipped', () => {
+  assert.match(
+    skipReason('pull_request_review', { action: 'dismissed', review: { body: 'nvm' } }),
+    /not a submitted action/
+  );
+});

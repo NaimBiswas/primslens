@@ -117,7 +117,7 @@ Automation is per-account, not per-deployment: connect your own GitHub token fro
    - Payload URL: the webhook URL shown on the Automation tab
    - Content type: `application/json`
    - Secret: the webhook secret shown on the Automation tab
-   - Events: **Issue comments** and **Pull request review comments**
+   - Events: **Issue comments**, **Pull request review comments**, and **Pull request reviews**
 
 PrismLens reacts to a comment only when the PR is assigned to, or authored by, your connected account — and it always ignores comments it posted itself, so it never replies to its own replies.
 

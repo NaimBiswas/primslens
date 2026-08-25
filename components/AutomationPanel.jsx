@@ -190,7 +190,7 @@ export default function AutomationPanel() {
                   </button>
                 </div>
               </li>
-              <li>Events: <strong>Issue comments</strong> and <strong>Pull request review comments</strong>.</li>
+              <li>Events: <strong>Issue comments</strong>, <strong>Pull request review comments</strong>, and <strong>Pull request reviews</strong>.</li>
             </ol>
           </div>
 

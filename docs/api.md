@@ -346,7 +346,7 @@ Disconnects an account — deletes its stored token, webhook secret, and activit
 
 ## `POST /api/webhooks/github/[installationId]`
 
-Receives GitHub webhook deliveries for automated PR-comment responses. Not called by the client — GitHub calls this directly once a webhook is registered on a repo (Settings → Webhooks → Add webhook) using the URL returned by `POST /api/automation/register`, subscribed to the **Issue comments** and **Pull request review comments** events.
+Receives GitHub webhook deliveries for automated PR-comment responses. Not called by the client — GitHub calls this directly once a webhook is registered on a repo (Settings → Webhooks → Add webhook) using the URL returned by `POST /api/automation/register`, subscribed to the **Issue comments**, **Pull request review comments**, and **Pull request reviews** events.
 
 `installationId` looks up that one connected account's own token and webhook secret — there's no shared server config to fall back on, so an unknown id is rejected outright.
 
@@ -358,7 +358,7 @@ Sent by GitHub, not something you call directly. Key headers:
 
 | Header | Description |
 |--------|-------------|
-| `X-GitHub-Event` | `issue_comment` or `pull_request_review_comment` — anything else is a no-op |
+| `X-GitHub-Event` | `issue_comment`, `pull_request_review_comment`, or `pull_request_review` — anything else is a no-op |
 | `X-Hub-Signature-256` | `sha256=<hmac>` of the raw body, keyed with this installation's own webhook secret |
 | `X-GitHub-Delivery` | Unique delivery ID, used to ignore GitHub's occasional redeliveries |
 
