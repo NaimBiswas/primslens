@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server';
-import { verifyGithubSignature, skipReason } from '../../../../lib/webhook-verify.js';
-import { processAutomatedComment } from '../../../../lib/services/automation.js';
+import { verifyGithubSignature, skipReason } from '../../../../../lib/webhook-verify.js';
+import { processAutomatedComment } from '../../../../../lib/services/automation.js';
+import { getInstallation } from '../../../../../lib/services/installations.js';
 
 export const runtime = 'nodejs';
 
@@ -18,25 +19,30 @@ function alreadySeen(id) {
 }
 
 /**
- * POST /api/webhooks/github
- * Receives PR comment events (issue_comment, pull_request_review_comment),
- * verifies the signature, and — for comments on PRs assigned to or
- * authored by the configured GITHUB_TOKEN's owner — analyzes the comment
- * and replies. Propose-only: never commits a code change on its own.
+ * POST /api/webhooks/github/[installationId]
+ * Every connected GitHub account gets its own webhook URL (see
+ * lib/services/automation.js's registerInstallation) — `installationId`
+ * looks up that one user's own token + webhook secret, so this route never
+ * relies on server-wide env vars the way it used to. Verifies the
+ * signature against that installation's secret, and — for comments on PRs
+ * assigned to or authored by its token's owner — analyzes the comment and
+ * replies. Propose-only: never commits a code change on its own.
  */
-export async function POST(req) {
-  const secret = process.env.GITHUB_WEBHOOK_SECRET;
-  const token = process.env.GITHUB_TOKEN;
-  if (!secret || !token) {
-    return NextResponse.json(
-      { error: 'Automation not configured: set GITHUB_WEBHOOK_SECRET and GITHUB_TOKEN' },
-      { status: 501 }
-    );
+export async function POST(req, { params }) {
+  const { installationId } = await params;
+  let installation;
+  try {
+    installation = await getInstallation(installationId);
+  } catch (err) {
+    return NextResponse.json({ error: `Automation not configured: ${err.message}` }, { status: 501 });
+  }
+  if (!installation) {
+    return NextResponse.json({ error: 'Unknown automation installation' }, { status: 404 });
   }
 
   const rawBody = await req.text();
   const signature = req.headers.get('x-hub-signature-256');
-  if (!verifyGithubSignature(rawBody, signature, secret)) {
+  if (!verifyGithubSignature(rawBody, signature, installation.webhookSecret)) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
@@ -61,7 +67,7 @@ export async function POST(req) {
   // Ack immediately — the actual AI review call can take minutes, far
   // longer than GitHub's webhook delivery timeout.
   after(() => {
-    processAutomatedComment({ eventType, payload }).catch((err) => {
+    processAutomatedComment({ installationId, eventType, payload }).catch((err) => {
       console.error('[webhooks/github] automation failed:', err.message);
     });
   });
