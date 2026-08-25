@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId, saveInstallationId } from '../lib/automation-local.js';
 
@@ -25,9 +25,30 @@ export default function AutomationPanel() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [resolvingPr, setResolvingPr] = useState(null);
 
-  const loadStatus = async (id) => {
-    setLoading(true);
-    setLoadError(null);
+  // PRs just approved/dismissed locally — kept hidden from every status
+  // update (including polls) until the server actually stops listing them,
+  // since approve/dismiss don't clear the row instantly (approve waits on a
+  // real webhook round trip). A ref, not state: read inside the poll
+  // interval's closure without needing to recreate that interval on change.
+  const resolvedPrsRef = useRef(new Set());
+
+  const applyStatus = (data) => {
+    const resolved = resolvedPrsRef.current;
+    const pending = data.pendingApprovals || [];
+    for (const prUrl of resolved) {
+      if (!pending.some((p) => p.prUrl === prUrl)) resolved.delete(prUrl);
+    }
+    setStatus({ ...data, pendingApprovals: pending.filter((p) => !resolved.has(p.prUrl)) });
+  };
+
+  // `silent` is used for the background poll below — it updates the data
+  // without flashing the loading spinner or bouncing to an error state over
+  // a one-off network blip; only the initial load shows those.
+  const loadStatus = async (id, { silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+      setLoadError(null);
+    }
     try {
       const res = await fetch(`/api/automation/status?installationId=${encodeURIComponent(id)}`);
       const data = await res.json();
@@ -38,11 +59,11 @@ export default function AutomationPanel() {
         setStatus(null);
         return;
       }
-      setStatus(data);
+      applyStatus(data);
     } catch (err) {
-      setLoadError(err.message);
+      if (!silent) setLoadError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -53,6 +74,27 @@ export default function AutomationPanel() {
     else setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Poll for new activity/pending approvals while connected — webhook
+  // events land whenever GitHub feels like sending them, not on any
+  // schedule the user controls, so this is what makes Recent Activity feel
+  // live instead of "refresh the page and hope." Paused while the tab isn't
+  // visible so a backgrounded dashboard doesn't keep hitting the API.
+  const hasStatus = !!status;
+  useEffect(() => {
+    if (!installationId || !hasStatus) return;
+    const POLL_MS = 5000;
+    const tick = () => {
+      if (document.visibilityState === 'visible') loadStatus(installationId, { silent: true });
+    };
+    const interval = setInterval(tick, POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', tick);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installationId, hasStatus]);
 
   const handleConnect = async () => {
     if (!tokenDraft.trim()) return;
@@ -125,7 +167,9 @@ export default function AutomationPanel() {
       });
       // The actual commit happens once GitHub delivers the webhook for the
       // confirmation comment this just posted — not instant, so just drop
-      // it from the list rather than waiting for a real outcome here.
+      // it from the list (and keep it hidden across polls, see
+      // resolvedPrsRef) rather than waiting for a real outcome here.
+      resolvedPrsRef.current.add(prUrl);
       setStatus((s) => (s ? { ...s, pendingApprovals: s.pendingApprovals.filter((p) => p.prUrl !== prUrl) } : s));
     } finally {
       setResolvingPr(null);
@@ -140,6 +184,7 @@ export default function AutomationPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId, prUrl }),
       });
+      resolvedPrsRef.current.add(prUrl);
       setStatus((s) => (s ? { ...s, pendingApprovals: s.pendingApprovals.filter((p) => p.prUrl !== prUrl) } : s));
     } finally {
       setResolvingPr(null);
