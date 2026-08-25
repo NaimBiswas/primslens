@@ -41,6 +41,7 @@ export default function AutomationPanel() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [resolvingPr, setResolvingPr] = useState(null);
   const [savingAIConfig, setSavingAIConfig] = useState(false);
+  const [aiConfigError, setAiConfigError] = useState(null);
 
   // PRs just approved/dismissed locally — kept hidden from every status
   // update (including polls) until the server actually stops listing them,
@@ -217,12 +218,18 @@ export default function AutomationPanel() {
   const handleUseMyProvider = async () => {
     if (!myActiveProvider) return;
     setSavingAIConfig(true);
+    setAiConfigError(null);
     try {
-      await fetch('/api/automation/ai-config', {
+      const res = await fetch('/api/automation/ai-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId, ...myActiveProvider }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAiConfigError(data.error || 'Failed to save AI provider');
+        return;
+      }
       await loadStatus(installationId);
     } finally {
       setSavingAIConfig(false);
@@ -231,12 +238,18 @@ export default function AutomationPanel() {
 
   const handleUseServerDefault = async () => {
     setSavingAIConfig(true);
+    setAiConfigError(null);
     try {
-      await fetch('/api/automation/ai-config', {
+      const res = await fetch('/api/automation/ai-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAiConfigError(data.error || 'Failed to save AI provider');
+        return;
+      }
       await loadStatus(installationId);
     } finally {
       setSavingAIConfig(false);
@@ -298,6 +311,9 @@ export default function AutomationPanel() {
 
           <div className={styles.block}>
             <div className="section-title blue">AI PROVIDER FOR AUTOMATION</div>
+            {aiConfigError && (
+              <p className={styles.connectHint}>❌ {aiConfigError}</p>
+            )}
             {status.aiProviderId ? (
               <>
                 <p className={styles.statusNote}>
