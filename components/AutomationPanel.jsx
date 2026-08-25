@@ -35,6 +35,14 @@ function activityLabel(entry) {
   return action ? `${outcome} ${action}` : outcome;
 }
 
+// The PR number isn't stored separately — it's already in the URL
+// (.../pull/123), so pull it back out for display rather than adding a
+// column just to hold a value derivable from one already there.
+function prNumberOf(prUrl) {
+  const match = /\/pull\/(\d+)/.exec(prUrl || '');
+  return match ? match[1] : null;
+}
+
 export default function AutomationPanel() {
   const [installationId, setInstallationId] = useState('');
   const [status, setStatus] = useState(null);
@@ -278,6 +286,7 @@ export default function AutomationPanel() {
                 {status.pendingApprovals.map((item) => (
                   <div className={styles.block} key={item.prUrl}>
                     <a href={item.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
+                      {prNumberOf(item.prUrl) ? `#${prNumberOf(item.prUrl)} ` : ''}
                       {item.prTitle || item.prUrl}
                     </a>
                     <pre className="review-recommendation">{item.preview}</pre>
@@ -344,21 +353,27 @@ export default function AutomationPanel() {
               </div>
             ) : (
               <div className={styles.activityList}>
-                {status.recentActivity.map((entry, i) => (
-                  <div className={styles.activityRow} key={i}>
+                {status.recentActivity.map((entry) => (
+                  <div className={styles.activityRow} key={entry.id}>
                     <span className={`${styles.activityBadge} ${styles[ACTIVITY_BADGE_CLASS[entry.outcome]] || ''}`}>
                       {activityLabel(entry)}
                     </span>
                     <div className={styles.activityBody}>
                       {entry.prUrl ? (
                         <a href={entry.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
+                          {prNumberOf(entry.prUrl) ? `#${prNumberOf(entry.prUrl)} ` : ''}
                           {entry.prTitle || entry.prUrl}
                         </a>
                       ) : (
                         <span className={styles.activityLink}>{entry.eventType || 'event'}</span>
                       )}
                       {entry.reason && <span className={styles.activityReason}>{entry.reason}</span>}
-                      <span className={styles.activityTime}>{new Date(entry.at).toLocaleString()}</span>
+                      <span
+                        className={styles.activityTime}
+                        title={entry.deliveryId ? `GitHub delivery ${entry.deliveryId}` : undefined}
+                      >
+                        #{entry.id} · {new Date(entry.at).toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 ))}

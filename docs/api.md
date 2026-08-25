@@ -389,7 +389,7 @@ Status + recent-activity snapshot for one connected account, for the Automation 
   "botLogin": "octocat",
   "webhookSecret": "a1b2c3...",
   "recentActivity": [
-    { "at": "2026-08-24T10:00:00.000Z", "prUrl": "https://github.com/o/r/pull/1", "outcome": "replied", "prTitle": "Fix rate limiter" }
+    { "id": 482, "at": "2026-08-24T10:00:00.000Z", "prUrl": "https://github.com/o/r/pull/1", "outcome": "replied", "prTitle": "Fix rate limiter", "deliveryId": "e6b9c1a0-..." }
   ],
   "pendingApprovals": [
     { "prUrl": "https://github.com/o/r/pull/2", "prTitle": "Add rate limiter", "preview": "Here's the proposed fix:\n```diff\n...\n```", "createdAt": "2026-08-26T09:00:00.000Z" }
@@ -398,7 +398,7 @@ Status + recent-activity snapshot for one connected account, for the Automation 
 }
 ```
 
-`recentActivity[].outcome` is one of `received` (shown as "queued" in the dashboard — the event just landed and is still being processed in the background), `replied`, `skipped` (with a `reason`), or `error` (with a `reason`). Every webhook delivery gets a `received`/`skipped` row the instant it arrives — even ones the account doesn't act on (wrong action, no body text, an unhandled event type) — so a delivery that GitHub shows as `200` always has a matching row here; a `received` row is followed by a second `replied`/`error` row once the backgrounded AI call finishes. `pendingApprovals` lists PRs where a fix was proposed and is waiting for confirmation — one entry per PR, superseded by a newer proposal on the same PR.
+`recentActivity[].outcome` is one of `received` (shown as "queued" in the dashboard — the event just landed and is still being processed in the background), `replied`, `skipped` (with a `reason`), or `error` (with a `reason`). Every webhook delivery gets a `received`/`skipped` row the instant it arrives — even ones the account doesn't act on (wrong action, no body text, an unhandled event type) — so a delivery that GitHub shows as `200` always has a matching row here. Each row carries its own `id` (a stable, always-increasing row number — shown in the dashboard as `#482`) and `deliveryId` (GitHub's own `X-GitHub-Delivery`, `null` for rows predating this field): once background processing finishes, the `received` row for that delivery is updated in place to `replied`/`skipped`/`error` rather than a second row being appended for the same event. `pendingApprovals` lists PRs where a fix was proposed and is waiting for confirmation — one entry per PR, superseded by a newer proposal on the same PR.
 
 ## `POST /api/automation/approve`
 
