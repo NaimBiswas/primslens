@@ -3,6 +3,20 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId, saveInstallationId } from '../lib/automation-local.js';
+import { resolveAIOverride } from '../lib/ai-local.js';
+
+// Matches the provider registry in lib/services/ai-providers.js — just
+// enough to label the automation status line, so it doesn't need a network
+// round trip to /api/ai/models just to find a display name.
+const PROVIDER_NAME = {
+  gemini: 'Gemini',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  groq: 'Groq',
+  openrouter: 'OpenRouter',
+  mistral: 'Mistral',
+  deepseek: 'DeepSeek',
+};
 
 const ACTIVITY_BADGE_CLASS = {
   received: 'activityReceived',
@@ -56,6 +70,7 @@ export default function AutomationPanel() {
   const [connectError, setConnectError] = useState(null);
   const [disconnecting, setDisconnecting] = useState(false);
   const [resolvingPr, setResolvingPr] = useState(null);
+  const [savingAIConfig, setSavingAIConfig] = useState(false);
 
   // PRs just approved/dismissed locally — kept hidden from every status
   // update (including polls) until the server actually stops listing them,
@@ -223,6 +238,41 @@ export default function AutomationPanel() {
     }
   };
 
+  // Whatever's currently active on the Model page in *this* browser — null
+  // if nothing's configured there. Automation can't see localStorage on its
+  // own (it runs server-side, triggered by a webhook), so this has to be
+  // pushed to the server explicitly rather than picked up automatically.
+  const myActiveProvider = resolveAIOverride();
+
+  const handleUseMyProvider = async () => {
+    if (!myActiveProvider) return;
+    setSavingAIConfig(true);
+    try {
+      await fetch('/api/automation/ai-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ installationId, ...myActiveProvider }),
+      });
+      await loadStatus(installationId);
+    } finally {
+      setSavingAIConfig(false);
+    }
+  };
+
+  const handleUseServerDefault = async () => {
+    setSavingAIConfig(true);
+    try {
+      await fetch('/api/automation/ai-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ installationId }),
+      });
+      await loadStatus(installationId);
+    } finally {
+      setSavingAIConfig(false);
+    }
+  };
+
   return (
     <main className="card">
       <div className="section-title blue">AUTOMATION</div>
@@ -274,6 +324,40 @@ export default function AutomationPanel() {
               <span className={styles.statusLabel}>Watching as</span>
               <span className={styles.statusValue}>{status.botLogin ? `@${status.botLogin}` : '—'}</span>
             </div>
+          </div>
+
+          <div className={styles.block}>
+            <div className="section-title blue">AI PROVIDER FOR AUTOMATION</div>
+            {status.aiProviderId ? (
+              <>
+                <p className={styles.statusNote}>
+                  Automated replies and reviews use <strong>{PROVIDER_NAME[status.aiProviderId] || status.aiProviderId}</strong>
+                  {status.aiModel ? ` (${status.aiModel})` : ''} — your own key, not the server&rsquo;s default.
+                </p>
+                <button type="button" className="btn btn-secondary" onClick={handleUseServerDefault} disabled={savingAIConfig}>
+                  {savingAIConfig ? 'Working…' : 'Use server default instead'}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className={styles.statusNote}>
+                  Automation is using whichever provider the server has an env key for — not necessarily the one you
+                  picked on the Model page.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-approve"
+                  onClick={handleUseMyProvider}
+                  disabled={savingAIConfig || !myActiveProvider}
+                >
+                  {savingAIConfig
+                    ? 'Working…'
+                    : myActiveProvider
+                      ? `Use my ${PROVIDER_NAME[myActiveProvider.providerId] || myActiveProvider.providerId} for automation`
+                      : 'Configure a provider on the Model page first'}
+                </button>
+              </>
+            )}
           </div>
 
           {status.pendingApprovals.length > 0 && (

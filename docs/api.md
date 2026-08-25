@@ -390,6 +390,8 @@ Status + recent-activity snapshot for one connected account, for the Automation 
   "id": "5e8b3c...-uuid",
   "botLogin": "octocat",
   "webhookSecret": "a1b2c3...",
+  "aiProviderId": "openrouter",
+  "aiModel": "openai/gpt-4o-mini",
   "recentActivity": [
     { "id": 482, "at": "2026-08-24T10:00:00.000Z", "prUrl": "https://github.com/o/r/pull/1", "outcome": "replied", "prTitle": "Fix rate limiter", "deliveryId": "e6b9c1a0-..." }
   ],
@@ -401,6 +403,12 @@ Status + recent-activity snapshot for one connected account, for the Automation 
 ```
 
 `recentActivity[].outcome` is one of `received` (shown as "queued" in the dashboard — the event just landed and is still being processed in the background), `replied`, `skipped` (with a `reason`), or `error` (with a `reason`). Every webhook delivery gets a `received`/`skipped` row the instant it arrives — even ones the account doesn't act on (wrong action, no body text, an unhandled event type) — so a delivery that GitHub shows as `200` always has a matching row here. Each row carries its own `id` (a stable, always-increasing row number — shown in the dashboard as `#482`) and `deliveryId` (GitHub's own `X-GitHub-Delivery`, `null` for rows predating this field): once background processing finishes, the `received` row for that delivery is updated in place to `replied`/`skipped`/`error` rather than a second row being appended for the same event. `pendingApprovals` lists PRs where a fix was proposed and is waiting for confirmation — one entry per PR, superseded by a newer proposal on the same PR.
+
+`aiProviderId`/`aiModel` are `null` unless this account pointed automation at a specific provider (see `POST /api/automation/ai-config` below) — `null` means automation falls back to whichever provider the server has an env key for, same as before this existed.
+
+## `POST /api/automation/ai-config`
+
+Body: `{ installationId, providerId, apiKey, model }`. Points this installation's automated reviews/replies at a specific provider/key — typically the same one already active on the Model page — instead of the server's env-configured default (`resolveEnvBackend()` in `lib/services/ai-providers.js`, which otherwise wins for every installation on a given server regardless of what any individual account actually wants). The key is encrypted at rest the same way the GitHub token is. Omit `providerId`/`apiKey` (or send them empty) to clear the override and revert to the server default.
 
 ## `POST /api/automation/approve`
 
