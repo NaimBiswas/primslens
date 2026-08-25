@@ -11,6 +11,30 @@ const ACTIVITY_BADGE_CLASS = {
   error: 'activityError',
 };
 
+const OUTCOME_LABEL = {
+  received: 'queued',
+  replied: 'replied',
+  skipped: 'skipped',
+  error: 'error',
+};
+
+// What kind of thing this event actually was, so the badge can read
+// "queued review" / "replied comment" instead of a bare outcome word —
+// events an installation isn't set up to act on (a plain `push`, etc.)
+// have no entry here and just fall back to the outcome alone.
+const EVENT_LABEL = {
+  pull_request: 'review',
+  issue_comment: 'comment',
+  pull_request_review_comment: 'inline comment',
+  pull_request_review: 'review comment',
+};
+
+function activityLabel(entry) {
+  const outcome = OUTCOME_LABEL[entry.outcome] || entry.outcome;
+  const action = EVENT_LABEL[entry.eventType];
+  return action ? `${outcome} ${action}` : outcome;
+}
+
 export default function AutomationPanel() {
   const [installationId, setInstallationId] = useState('');
   const [status, setStatus] = useState(null);
@@ -323,7 +347,7 @@ export default function AutomationPanel() {
                 {status.recentActivity.map((entry, i) => (
                   <div className={styles.activityRow} key={i}>
                     <span className={`${styles.activityBadge} ${styles[ACTIVITY_BADGE_CLASS[entry.outcome]] || ''}`}>
-                      {entry.outcome === 'received' ? 'queued' : entry.outcome}
+                      {activityLabel(entry)}
                     </span>
                     <div className={styles.activityBody}>
                       {entry.prUrl ? (
