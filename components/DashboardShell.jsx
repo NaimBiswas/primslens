@@ -9,9 +9,9 @@ import styles from '../app/code-review/dashboard.module.css';
 export const NAV_TABS = [
   { key: 'review', label: 'Code Review', href: '/code-review' },
   { key: 'automation', label: 'Automation', href: '/automation' },
-  { key: 'models', label: 'Model', href: '/models' },
   { key: 'activity', label: 'Recent Activity', href: '/activity' },
   { key: 'pending-approvals', label: 'Pending Approvals', href: '/pending-approvals' },
+  { key: 'models', label: 'Model', href: '/models' },
 ];
 
 export default function DashboardShell({ active, children }) {

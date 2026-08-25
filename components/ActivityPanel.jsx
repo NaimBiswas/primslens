@@ -70,7 +70,7 @@ export default function ActivityPanel() {
 
   if (loading) {
     return (
-      <main className="card">
+      <main className={`card ${styles.tallCard}`}>
         <div className="loading">
           <div className="spinner" />
           <p className="loading-text">LOADING ACTIVITY...</p>
@@ -81,7 +81,7 @@ export default function ActivityPanel() {
 
   if (!installationId) {
     return (
-      <main className="card">
+      <main className={`card ${styles.tallCard}`}>
         <div className="section-title blue">RECENT ACTIVITY</div>
         <div className="empty-state">
           No account connected yet — connect one on the <Link href="/automation">Automation page</Link> to start
@@ -92,7 +92,7 @@ export default function ActivityPanel() {
   }
 
   return (
-    <main className="card">
+    <main className={`card ${styles.tallCard}`}>
       {loadError && (
         <div className="error-block">
           <p>❌ Couldn&rsquo;t load activity: {loadError}</p>

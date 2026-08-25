@@ -231,9 +231,22 @@
 }
 
 .activityListScroll {
-  max-height: 22rem;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 0.35rem;
+}
+
+/* Bigger, taller card for the Activity and Pending Approvals pages — both
+   can hold far more content than a typical card (a long filtered list, or
+   several full diff previews), so the default fixed .card height clips
+   them. Turns the card into a flex column so its one scrollable child
+   (.activityListScroll) fills whatever room is left below the fixed-size
+   header content instead of guessing a max-height that matches both. */
+.tallCard {
+  height: 42rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .activityFilterSelect {
