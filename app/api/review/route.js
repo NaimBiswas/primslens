@@ -9,7 +9,17 @@ export const runtime = 'nodejs';
 /**
  * POST /api/review
  * Body: { prUrl: string, token: string }
- * Returns: { meta, reviews, strengths, concerns, bugs, info, recommendation, files }
+ *
+ * Streams newline-delimited JSON so the client can show real pipeline state
+ * (fetching PR, pulling codebase tree, running AI review, ...) instead of a
+ * single opaque "analyzing" spinner. Each line is one of:
+ *   {"type":"progress","stage":"...","label":"...","data"?: ...}
+ *   {"type":"result","data": <review>}
+ *   {"type":"error","error":"..."}
+ * `data` on a progress line is set for the "ai-finding" stage — the finding
+ * object itself, streamed the moment the AI produces it, before the review
+ * as a whole is done. The stream always ends with exactly one "result" or
+ * "error" line.
  */
 export async function POST(req) {
   const { prUrl, token } = await req.json();
@@ -17,17 +27,37 @@ export async function POST(req) {
   if (!prUrl) return NextResponse.json({ error: 'prUrl is required' }, { status: 400 });
   if (!token) return NextResponse.json({ error: 'GitHub token is required' }, { status: 400 });
 
-  try {
-    const [prData, files, config] = await Promise.all([
-      fetchPR(prUrl, token),
-      fetchPRFiles(prUrl, token),
-      loadReviewConfig(prUrl, token),
-    ]);
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (obj) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
+      const onProgress = (stage, label, data) => send({ type: 'progress', stage, label, data });
 
-    const review = await analyzePR(prData, files, config, token);
-    return NextResponse.json(review);
-  } catch (err) {
-    const { status, msg } = githubErrorResponse(err);
-    return NextResponse.json({ error: msg }, { status });
-  }
+      try {
+        onProgress('fetch-pr', 'Fetching PR metadata & changed files…');
+        const [prData, files, config] = await Promise.all([
+          fetchPR(prUrl, token),
+          fetchPRFiles(prUrl, token),
+          loadReviewConfig(prUrl, token),
+        ]);
+        onProgress('files-ready', `${files.length} file(s) changed — starting analysis…`);
+
+        const review = await analyzePR(prData, files, config, token, onProgress);
+        send({ type: 'result', data: review });
+      } catch (err) {
+        const { msg } = githubErrorResponse(err);
+        send({ type: 'error', error: msg });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
 }

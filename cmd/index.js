@@ -43,7 +43,9 @@ program
         loadReviewConfig(prUrl, token),
       ]);
 
-      const review = await analyzePR(prData, files, config, token);
+      const review = await analyzePR(prData, files, config, token, (stage, label) => {
+        if (!options.json) console.log(`  → ${label}`);
+      });
 
       if (options.json) {
         console.log(JSON.stringify(review, null, 2));
@@ -59,6 +61,9 @@ program
       console.log(`  Files:   ${meta.stats.filesChanged}  (+${meta.stats.additions}/-${meta.stats.deletions})`);
       console.log(`  Branch:  ${meta.branch || '?'}`);
       console.log(`  Mode:    ${meta.analysisMode === 'ai' ? 'AI (opencode)' : 'regex fallback'}`);
+      if (meta.analysisMode === 'fallback' && meta.fallbackReason) {
+        console.log(`  Reason:  ${meta.fallbackReason}`);
+      }
       console.log(line);
 
       for (const cat of CATEGORIES) {

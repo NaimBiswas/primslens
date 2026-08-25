@@ -66,7 +66,7 @@ npm run review https://github.com/user/repo/pull/17
 
 - **6-dimension analysis** — every file checked for performance, security, readability, bugs, scalability, and best practices
 - **Severity levels** — critical, high, medium, low with visual badges
-- **Post to PR** — submit the review as a GitHub PR review comment, with inline `suggestion` code blocks (one-click-apply diffs) across every category, not just performance
+- **Post to PR** — submit the review as a GitHub PR review comment, with syntax-highlighted code blocks (language-tagged per file, e.g. ```js / ```py) showing a concrete fix across every category, not just performance
 - **Auto-generated PR description** — a **Describe** button replaces the PR body with a file-by-file summary + review snapshot generated from the same analysis
 - **Size/risk labels** — a **Label** button derives `size/*` and `risk/*` labels from the diff size and verdict and applies them (creating the labels on the repo first if they don't exist)
 - **Missing-test detection with a concrete suggestion** — flags a PR that adds substantial new code but touches no test file, folded into Best Practices rather than a new dimension; the finding includes a real, language-aware test skeleton (JS/TS, Python, Go, Ruby, Java, Rust) for the largest changed file, not just "add tests"
@@ -139,8 +139,15 @@ Every finding has 👍/👎 buttons. This isn't a hosted learning system — the
 | POST | `/api/review` | Full PR review |
 | POST | `/api/review/preview` | Lightweight PR metadata |
 | POST | `/api/review/post` | Post review as GitHub comment |
+| POST | `/api/review/describe` | Auto-generated PR description |
+| POST | `/api/review/label` | Size/risk labels |
 | POST | `/api/review/merge` | Merge the pull request |
+| POST | `/api/chat` | Chat (incl. doc generation) |
 | GET | `/api/health` | Server health check |
+| GET | `/api/automation/status` | Live automation setup status |
+| GET/POST | `/api/model` | Selected model (opencode free + connected providers) |
+| GET/POST/DELETE | `/api/providers` | Connect/disconnect opencode-supported providers |
+| POST | `/api/feedback` | 👍/👎 on a finding |
 | POST | `/api/webhooks/github` | Automated PR-comment responder (called by GitHub, not the client) |
 
 Full API reference: [`docs/api.md`](docs/api.md)

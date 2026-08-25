@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { reviewPR, postReviewToPR, approvePR, mergePR, describePR, labelPR, submitFeedback } from '../lib/api-client.js';
 import ChatPanel from './ChatPanel.jsx';
 
@@ -55,10 +55,20 @@ function statusClass(state) {
   return '';
 }
 
+function formatElapsed(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds}s`;
+}
+
 export default function CodeReviewPanel() {
   const [prUrl, setPrUrl] = useState('');
   const [token, setToken] = useState('');
   const [loading, setLoading] = useState(false);
+  const [progressLog, setProgressLog] = useState([]);
+  const [liveFindings, setLiveFindings] = useState([]);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [posting, setPosting] = useState(false);
@@ -85,6 +95,25 @@ export default function CodeReviewPanel() {
     setToken(getSavedToken());
   }, []);
 
+  const liveFindingsRef = useRef(null);
+  useEffect(() => {
+    if (liveFindingsRef.current) {
+      liveFindingsRef.current.scrollTop = liveFindingsRef.current.scrollHeight;
+    }
+  }, [liveFindings]);
+
+  // Ticks once a second while a review is in flight so the active step's
+  // "how long has this been running" readout updates live, not just when a
+  // new progress event happens to arrive (the AI-review step can otherwise
+  // sit unchanged for minutes with no visible sign of time passing).
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!loading) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [loading]);
+
 const handleSubmit = async (e) => {
   e.preventDefault();
   if (!prUrl.trim()) return setError('Enter a PR URL');
@@ -94,9 +123,19 @@ const handleSubmit = async (e) => {
   setLoading(true);
   setError(null);
   setResult(null);
+  setProgressLog([]);
+  setLiveFindings([]);
 
   try {
-    const data = await reviewPR(prUrl.trim(), token.trim());
+    const data = await reviewPR(prUrl.trim(), token.trim(), (evt) => {
+      // "ai-finding" events carry one finding as the AI produces it — shown
+      // as its own live-typed feed rather than mixed into the stage log.
+      if (evt.stage === 'ai-finding' && evt.data) {
+        setLiveFindings((list) => [...list, evt.data]);
+      } else {
+        setProgressLog((log) => [...log, { ...evt, t: Date.now() }]);
+      }
+    });
     setResult(data);
   } catch (err) {
     setError(err.message);
@@ -195,6 +234,8 @@ const handleSubmit = async (e) => {
     setLabelSuccess(null);
     setLabelError(null);
     setLoading(false);
+    setProgressLog([]);
+    setLiveFindings([]);
   };
 
   const handleTokenChange = (e) => {
@@ -245,7 +286,34 @@ const handleSubmit = async (e) => {
           <div className="loading">
             <div className="spinner" />
             <p className="loading-text">ANALYZING CODE CHANGES...</p>
-            <small>Fetching PR • Checking performance • Security scan • Readability • Bug detection • Scalability • Best practices</small>
+            {progressLog.length === 0 ? (
+              <small>Connecting…</small>
+            ) : (
+              <ul className="progress-steps">
+                {progressLog.map((evt, i) => {
+                  const isActive = i === progressLog.length - 1;
+                  const elapsedMs = isActive ? now - evt.t : progressLog[i + 1].t - evt.t;
+                  return (
+                    <li key={i} className={isActive ? 'step-active' : 'step-done'}>
+                      <span className="step-icon">{isActive ? '▸' : '✓'}</span>
+                      <span className="step-label">{evt.label}</span>
+                      <span className="step-time">{formatElapsed(elapsedMs)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {liveFindings.length > 0 && (
+              <div className="live-findings" ref={liveFindingsRef}>
+                {liveFindings.map((f, i) => (
+                  <div className={`live-finding sev-${f.severity || 'low'}`} key={i}>
+                    <span className={`sev-dot ${sevClass(f.severity)}`} />
+                    <span className="live-finding-type">{TYPE_LABELS[f.type] || f.type || 'Finding'}</span>
+                    <span className="live-finding-text">{esc(f.issue || '')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -258,6 +326,19 @@ const handleSubmit = async (e) => {
 
         {result && !loading && (
           <>
+            {result.meta?.analysisMode === 'fallback' && (
+              <div className="fallback-banner">
+                <span className="fallback-banner-icon">⚠</span>
+                <span>
+                  <strong>AI review unavailable for this run</strong> — showing pattern-based (regex) findings
+                  instead, which use different rules than AI mode and won&apos;t match a previous AI-mode review
+                  of this PR.
+                  {result.meta?.fallbackReason && (
+                    <span className="fallback-banner-reason"> Reason: {esc(result.meta.fallbackReason)}</span>
+                  )}
+                </span>
+              </div>
+            )}
             <div className="section-title blue">
               PR INFO
               {result.meta?.analysisMode && (

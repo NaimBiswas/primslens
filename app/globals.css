@@ -386,6 +386,113 @@ input::placeholder {
   font-size: 0.8rem;
 }
 
+.progress-steps {
+  list-style: none;
+  margin: 1.4rem auto 0;
+  padding: 0;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  text-align: left;
+}
+
+.progress-steps li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+
+.progress-steps .step-icon {
+  width: 1.1em;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.progress-steps .step-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.progress-steps .step-time {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-steps .step-active .step-time {
+  color: var(--neon-blue);
+}
+
+.progress-steps .step-done {
+  color: var(--text-secondary);
+}
+
+.progress-steps .step-done .step-icon {
+  color: var(--neon-green);
+}
+
+.progress-steps .step-active {
+  color: var(--text-primary);
+}
+
+.progress-steps .step-active .step-icon {
+  color: var(--neon-blue);
+  animation: step-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes step-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.live-findings {
+  margin: 1.2rem auto 0;
+  padding: 0.9rem 1rem;
+  max-width: 520px;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+}
+
+.live-finding {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  animation: finding-in 0.3s ease-out;
+}
+
+.live-finding-type {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.live-finding-text {
+  color: var(--text-primary);
+}
+
+@keyframes finding-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* ─── Error ──────────────────────────────────────────── */
 
 .error-block {
@@ -399,6 +506,36 @@ input::placeholder {
   color: var(--neon-red);
   font-size: 1rem;
   margin-bottom: 1.5rem;
+}
+
+/* ─── Fallback Banner ────────────────────────────────── */
+
+.fallback-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: 8px;
+  background: rgba(255, 200, 0, 0.08);
+  border: 1px solid rgba(255, 200, 0, 0.35);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  position: relative;
+  z-index: 1;
+}
+
+.fallback-banner-icon {
+  flex-shrink: 0;
+  color: #ffc800;
+  font-size: 1rem;
+}
+
+.fallback-banner-reason {
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
 }
 
 /* ─── Section Titles ─────────────────────────────────── */

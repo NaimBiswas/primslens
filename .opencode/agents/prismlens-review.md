@@ -1,6 +1,7 @@
 ---
 description: Analyzes pull request diffs and returns structured code review findings in JSON. Use when reviewing PR file patches for bugs, security, performance, and code quality issues.
 mode: all
+temperature: 0
 permission:
   read: allow
   edit: deny
@@ -42,23 +43,15 @@ If `avoidPatternsLike` is non-empty, it's real feedback from past reviews — re
 
 ## Output
 
-Return **ONLY valid raw JSON**. No markdown, no code fences, no explanation — just the JSON. The output will be parsed with `JSON.parse()`.
+**Stream your findings as you produce them.** Do not review everything first and print one big blob at the end — as soon as you've identified one finding, print it and move on to the next. The caller reads your output incrementally and shows each finding to the user as it arrives, so a finding printed early is seen early.
+
+Print **exactly one complete, self-contained JSON object per finding, on its own line**. No markdown, no code fences, no explanation, no wrapping array or `{"findings": [...]}` envelope — just one raw JSON object per line, parsed with `JSON.parse()` as each line completes:
 
 ```json
-{
-  "findings": [
-    {
-      "type": "BUG|CONCERN|INFO|STRENGTH",
-      "severity": "critical|high|medium|low",
-      "category": "performance|security|readability|bugs|scalability|best-practices",
-      "issue": "Clear specific description referencing the actual code pattern found. Include the filename.",
-      "recommendation": "Actionable suggestion to fix the issue"
-    }
-  ]
-}
+{"type": "BUG|CONCERN|INFO|STRENGTH", "severity": "critical|high|medium|low", "category": "performance|security|readability|bugs|scalability|best-practices", "issue": "Clear specific description referencing the actual code pattern found. Include the filename.", "recommendation": "Actionable suggestion to fix the issue"}
 ```
 
-`file` field is NOT needed — it's derived from the file context automatically.
+`file` field is NOT needed — it's derived from the file context automatically. If everything is clean, print nothing at all.
 
 ## Categories to check
 
@@ -124,6 +117,6 @@ When reporting an issue, the `issue` description must include the filename so us
 ## Edge cases
 
 - If a file patch is empty or has no added lines, skip it.
-- If all files are clean, return: `{"findings": []}`
+- If all files are clean, print nothing.
 - Only report genuine issues — don't flag comments or trivial code
 - For STRENGTH type findings, note genuinely good patterns (proper error handling, security practices, clean code)

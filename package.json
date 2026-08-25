@@ -11,6 +11,7 @@
     "review": "node cmd/index.js review",
     "cli": "node cmd/index.js",
     "help": "node cmd/index.js --help",
+    "lint": "node scripts/lint.js",
     "health": "node -e \"fetch('http://localhost:3000/api/health').then(r=>r.json()).then(console.log)\""
   },
   "keywords": [
