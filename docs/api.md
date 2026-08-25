@@ -373,7 +373,7 @@ Sent by GitHub, not something you call directly. Key headers:
 | 404 | Unknown `installationId` (never registered, or since disconnected) |
 | 501 | `DATABASE_URL`/`AUTOMATION_ENCRYPTION_KEY` not configured on the server |
 
-A `200` with `{ "skipped": "<reason>" }` means the event was received but wasn't relevant (not an `opened`/`created`/`submitted` action, a `pull_request_review` with no body text, or the PR isn't assigned to/authored by the account's own login) — this is normal, not an error.
+A `200` with `{ "skipped": "<reason>" }` means the event was received but wasn't relevant (not an `opened`/`created`/`submitted` action, a `pull_request_review` with no body text, a comment posted by a bot account (`vercel[bot]`, `github-actions[bot]`, `dependabot[bot]`, etc. — GitHub's own `type: "Bot"` marker), or the PR isn't assigned to/authored by the account's own login) — this is normal, not an error.
 
 Every reply and auto-review this route posts to GitHub carries a trailing `<sub>PrismLens automation · activity number #<id></sub>` line, `<id>` matching the row's `id` in `recentActivity` below — so a comment or review on GitHub can be matched back to its dashboard row (or vice versa).
 

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'crypto';
 import { verifyGithubSignature, skipReason } from '../lib/webhook-verify.js';
+import { isFromBot } from '../lib/services/automation.js';
 
 const SECRET = 'test-secret';
 
@@ -107,4 +108,22 @@ test('skipReason: pull_request_review with a non-submitted action is skipped', (
     skipReason('pull_request_review', { action: 'dismissed', review: { body: 'nvm' } }),
     /not a submitted action/
   );
+});
+
+test('isFromBot: true for GitHub App/bot accounts (type: "Bot")', () => {
+  assert.equal(isFromBot({ user: { login: 'vercel[bot]', type: 'Bot' } }), true);
+  assert.equal(isFromBot({ user: { login: 'github-actions[bot]', type: 'Bot' } }), true);
+});
+
+test('isFromBot: true for a [bot]-suffixed login even without a type field', () => {
+  assert.equal(isFromBot({ user: { login: 'dependabot[bot]' } }), true);
+});
+
+test('isFromBot: false for a real user', () => {
+  assert.equal(isFromBot({ user: { login: 'octocat', type: 'User' } }), false);
+});
+
+test('isFromBot: false when there is no user at all', () => {
+  assert.equal(isFromBot({}), false);
+  assert.equal(isFromBot(null), false);
 });
