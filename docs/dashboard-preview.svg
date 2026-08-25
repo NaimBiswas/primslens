@@ -1,0 +1,83 @@
+<svg width="960" height="600" viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono', ui-monospace, monospace">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0a16"/>
+      <stop offset="1" stop-color="#0d1a2b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.2" cy="0.1" r="1">
+      <stop offset="0" stop-color="#00e5ff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#00e5ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="0.6"/>
+    </filter>
+  </defs>
+
+  <rect width="960" height="600" fill="url(#bg)"/>
+  <rect width="960" height="600" fill="url(#glow)"/>
+
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="220" height="600" fill="#0b0f1c" stroke="#1b2740"/>
+  <text x="22" y="40" fill="#00e5ff" font-size="20" font-weight="700">PRISMLENS</text>
+  <text x="22" y="60" fill="#5b6b8c" font-size="10">cyberpunk code review</text>
+
+  <g font-size="12" fill="#9fb3d1">
+    <rect x="14" y="92" width="192" height="30" rx="6" fill="#112038" stroke="#1f3a5f"/>
+    <text x="28" y="111" fill="#00e5ff">▸ Code Review</text>
+    <text x="28" y="151">  Automation</text>
+    <text x="28" y="181">  Model</text>
+    <text x="28" y="211">  Chat</text>
+  </g>
+
+  <!-- Main panel -->
+  <rect x="240" y="28" width="690" height="540" rx="12" fill="#0e1424" stroke="#1f3a5f" opacity="0.9"/>
+  <text x="264" y="62" fill="#e6f1ff" font-size="16" font-weight="600">Code Review</text>
+  <text x="264" y="84" fill="#5b6b8c" font-size="11">Review any GitHub pull request across 6 dimensions</text>
+
+  <!-- URL input -->
+  <rect x="264" y="100" width="420" height="34" rx="8" fill="#0a0f1c" stroke="#26456f"/>
+  <text x="278" y="121" fill="#5b6b8c" font-size="11">https://github.com/user/repo/pull/17</text>
+  <rect x="700" y="100" width="100" height="34" rx="8" fill="#00e5ff" opacity="0.12" stroke="#00e5ff"/>
+  <text x="730" y="122" fill="#00e5ff" font-size="12" font-weight="600">Review</text>
+
+  <!-- Spinner row -->
+  <circle cx="280" cy="180" r="9" fill="none" stroke="#00e5ff" stroke-width="2" stroke-dasharray="30 14" opacity="0.8"/>
+  <text x="300" y="185" fill="#e6f1ff" font-size="13" font-weight="600" letter-spacing="1">ANALYZING CODE CHANGES…</text>
+
+  <!-- Progress steps -->
+  <g font-size="12" fill="#9fb3d1">
+    <text x="280" y="230" fill="#7dffb0">✓</text><text x="300" y="230" fill="#9fb3d1">Pulling codebase tree &amp; full file contents…</text><text x="610" y="230" fill="#5b6b8c">2s</text>
+    <text x="280" y="258" fill="#00e5ff">▸</text><text x="300" y="258" fill="#e6f1ff">Reviewing 12 changed file(s) with AI…</text><text x="610" y="258" fill="#00e5ff">18s</text>
+    <text x="280" y="286" fill="#5b6b8c">…</text><text x="300" y="286" fill="#5b6b8c">Checking dependencies for known vulnerabilities…</text><text x="610" y="286" fill="#5b6b8c">—</text>
+  </g>
+
+  <!-- Live findings feed -->
+  <rect x="280" y="312" width="610" height="220" rx="10" fill="#0a0f1c" stroke="#26456f"/>
+  <text x="296" y="334" fill="#5b6b8c" font-size="10" letter-spacing="1">LIVE FINDINGS</text>
+
+  <g font-size="11">
+    <circle cx="300" cy="360" r="4" fill="#ff8c00"/>
+    <text x="314" y="364" fill="#7d8aa3" font-size="9" letter-spacing="0.5">BUG</text>
+    <text x="356" y="364" fill="#e6f1ff">Unhandled .then() in api/client.js — add .catch()</text>
+
+    <circle cx="300" cy="388" r="4" fill="#ffd400"/>
+    <text x="314" y="392" fill="#7d8aa3" font-size="9" letter-spacing="0.5">CONCERN</text>
+    <text x="356" y="392" fill="#e6f1ff">Synchronous readFileSync blocks the event loop</text>
+
+    <circle cx="300" cy="416" r="4" fill="#00ff9c"/>
+    <text x="314" y="420" fill="#7d8aa3" font-size="9" letter-spacing="0.5">STRENGTH</text>
+    <text x="356" y="420" fill="#e6f1ff">Good use of optional chaining in utils/parse.js</text>
+
+    <circle cx="300" cy="444" r="4" fill="#ff8c00"/>
+    <text x="314" y="448" fill="#7d8aa3" font-size="9" letter-spacing="0.5">BUG</text>
+    <text x="356" y="448" fill="#e6f1ff">NaN compared with === in score.js — use Number.isNaN()</text>
+
+    <circle cx="300" cy="472" r="4" fill="#ffd400"/>
+    <text x="314" y="476" fill="#7d8aa3" font-size="9" letter-spacing="0.5">CONCERN</text>
+    <text x="356" y="476" fill="#e6f1ff">Hardcoded page size limit (200) — make configurable</text>
+
+    <circle cx="300" cy="500" r="4" fill="#ff4d4d"/>
+    <text x="314" y="504" fill="#7d8aa3" font-size="9" letter-spacing="0.5">CRITICAL</text>
+    <text x="356" y="504" fill="#e6f1ff">Outdated dependency lodash &lt;4.17.21 (GHSA-…)</text>
+  </g>
+</svg>

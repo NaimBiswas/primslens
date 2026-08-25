@@ -41,8 +41,10 @@ prismlens/
 │       ├── providers.js    # models.dev catalog + opencode's credential store
 │       ├── review-config.js # loads per-repo .prismlens.json (ignore paths, severity overrides, disabled checks)
 │       ├── dependency-scan.js # OSV.dev vulnerability scan for package.json
+│       ├── json-value-stream.js # streams one JSON finding object per line from opencode's stdout
 │       └── feedback.js     # 👍/👎 log, feeds "avoid patterns like this" back into the AI prompt
 ├── cmd/index.js            # CLI tool (imports analyzer directly)
+├── scripts/                # local tooling (e.g. scripts/lint.js)
 ├── docs/                   # Architecture + API docs
 └── package.json
 ```
@@ -60,12 +62,29 @@ npm run build && npm run start
 
 # CLI
 npm run review https://github.com/user/repo/pull/17
+
+# Lint (local checks)
+npm run lint
 ```
+
+## Screenshots
+
+| Landing page (`/`) | Code Review dashboard (`/code-review`) |
+| --- | --- |
+| ![Landing](docs/screenshots/landing-age.png) | ![Code review](docs/screenshots/code-review.png) |
+
+| Model & provider selection | GitHub automation |
+| --- | --- |
+| ![Select model](docs/screenshots/select-model.png) | ![GitHub automation](docs/screenshots/github-automation.png) |
 
 ## Features
 
 - **6-dimension analysis** — every file checked for performance, security, readability, bugs, scalability, and best practices
 - **Severity levels** — critical, high, medium, low with visual badges
+- **Live review progress** — the dashboard streams the real pipeline as it runs: pulling the codebase tree, running the AI review, scanning dependencies, each step with a live running-time readout, plus a live feed of findings as the AI emits them (no opaque "analyzing…" spinner)
+- **Transparent fallback** — if the AI path is unavailable (opencode not found, errors, or times out), a banner says so and why; partial AI findings found before a timeout are kept rather than thrown away, and the regex fallback runs language-agnostic checks instead
+- **Language-aware checks** — JS/TS-specific heuristics (`==` coercion, optional chaining, sync I/O, React APIs) only apply to JS/TS files, so Go/Python/Rust/etc. don't get false-positive "bugs" from idioms those languages use legitimately
+- **Richer PR comments & descriptions** — emoji-coded severity/verdict badges (🔴🟠🟡🟢), an at-a-glance per-dimension overview table, and syntax-highlighted, language-tagged code suggestions (```` ```js ```` / ```` ```py ````) in both the posted review and the auto-generated PR description
 - **Post to PR** — submit the review as a GitHub PR review comment, with syntax-highlighted code blocks (language-tagged per file, e.g. ```js / ```py) showing a concrete fix across every category, not just performance
 - **Auto-generated PR description** — a **Describe** button replaces the PR body with a file-by-file summary + review snapshot generated from the same analysis
 - **Size/risk labels** — a **Label** button derives `size/*` and `risk/*` labels from the diff size and verdict and applies them (creating the labels on the repo first if they don't exist)
