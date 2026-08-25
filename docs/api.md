@@ -381,7 +381,7 @@ Every reply and auto-review this route posts to GitHub carries a trailing `<sub>
 
 ## `GET /api/automation/status?installationId=...`
 
-Status + recent-activity snapshot for one connected account, for the `/automation` and `/activity` pages. The webhook secret here is safe to return in any environment — it's specific to this one installation, not a value shared by every user of the app.
+Status + recent-activity snapshot for one connected account, for the `/automation`, `/activity`, and `/pending-approvals` pages. The webhook secret here is safe to return in any environment — it's specific to this one installation, not a value shared by every user of the app.
 
 ### Response
 

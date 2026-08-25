@@ -2,14 +2,16 @@ import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 
 // Shared sidebar/shell for every dashboard page (Code Review, Automation,
-// Models, Recent Activity) — each now its own real route instead of one
-// page switching client-side tab state, so a link/bookmark/refresh lands
-// back on the same section instead of always resetting to Code Review.
+// Models, Recent Activity, Pending Approvals) — each now its own real route
+// instead of one page switching client-side tab state, so a
+// link/bookmark/refresh lands back on the same section instead of always
+// resetting to Code Review.
 export const NAV_TABS = [
   { key: 'review', label: 'Code Review', href: '/code-review' },
   { key: 'automation', label: 'Automation', href: '/automation' },
   { key: 'models', label: 'Model', href: '/models' },
   { key: 'activity', label: 'Recent Activity', href: '/activity' },
+  { key: 'pending-approvals', label: 'Pending Approvals', href: '/pending-approvals' },
 ];
 
 export default function DashboardShell({ active, children }) {

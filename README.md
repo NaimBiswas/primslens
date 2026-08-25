@@ -13,6 +13,7 @@ prismlens/
 │   ├── automation/page.jsx  # Automation page ("/automation")
 │   ├── models/page.jsx      # Model page ("/models")
 │   ├── activity/page.jsx    # Recent Activity page ("/activity")
+│   ├── pending-approvals/page.jsx # Pending Approvals page ("/pending-approvals")
 │   ├── layout.jsx
 │   └── api/
 │       ├── review/route.js             # POST /api/review
@@ -36,6 +37,7 @@ prismlens/
 │   ├── AutomationPanel.jsx  # "/automation" page content
 │   ├── ModelPanel.jsx       # "/models" page content (AI provider keys + model picker)
 │   ├── ActivityPanel.jsx    # "/activity" page content (searchable/filterable event history)
+│   ├── PendingApprovalsPanel.jsx # "/pending-approvals" page content (preview/approve/dismiss)
 │   └── ChatPanel.jsx
 ├── lib/
 │   ├── api-client.js       # fetch wrapper used by the UI
@@ -121,6 +123,7 @@ PrismLens can watch your repos and act on its own — no need to open the app:
 - **New comment on a PR you're assigned to or authored** → PrismLens replies through the same chat pipeline the interactive UI uses. It always **proposes**, never commits on its own: a fix preview when the comment implies a code change, a direct answer otherwise. The conversation is remembered per PR, so replying "commit" later actually has the earlier preview in context. Comments from bot accounts (`vercel[bot]`, `github-actions[bot]`, `dependabot[bot]`, etc.) are ignored — only comments from a real person get a reply.
 - **Pending approvals** → every proposed-but-unconfirmed fix shows up in the Automation page with the diff, so you can review and approve it from the dashboard instead of digging through PR comments. Approving posts a `commit` comment on the PR using your own token — the same thing typing "commit" on GitHub does — so it's one consistent path either way.
 - **Recent Activity page** → every webhook delivery — queued, replied, skipped, or errored — lands on its own `/activity` page with search and an outcome filter, separate from the Automation page's setup/connection info.
+- **Pending Approvals page** → every proposed-but-unconfirmed fix, across every PR, lives on its own `/pending-approvals` page with the diff and Approve/Dismiss right there — the Automation page just links to it.
 
 Automation is per-account, not per-deployment: connect your own GitHub token from the **Automation page**, and PrismLens generates a webhook URL and secret unique to you. This is what lets someone other than whoever deployed the app use automation on their own repos — nothing is shared between accounts.
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import styles from '../app/code-review/dashboard.module.css';
 import { getSavedInstallationId, saveInstallationId } from '../lib/automation-local.js';
@@ -19,14 +19,6 @@ const PROVIDER_NAME = {
   deepseek: 'DeepSeek',
 };
 
-// The PR number isn't stored separately — it's already in the URL
-// (.../pull/123), so pull it back out for display rather than adding a
-// column just to hold a value derivable from one already there.
-function prNumberOf(prUrl) {
-  const match = /\/pull\/(\d+)/.exec(prUrl || '');
-  return match ? match[1] : null;
-}
-
 export default function AutomationPanel() {
   const [installationId, setInstallationId] = useState('');
   const [status, setStatus] = useState(null);
@@ -39,25 +31,8 @@ export default function AutomationPanel() {
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState(null);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [resolvingPr, setResolvingPr] = useState(null);
   const [savingAIConfig, setSavingAIConfig] = useState(false);
   const [aiConfigError, setAiConfigError] = useState(null);
-
-  // PRs just approved/dismissed locally — kept hidden from every status
-  // update (including polls) until the server actually stops listing them,
-  // since approve/dismiss don't clear the row instantly (approve waits on a
-  // real webhook round trip). A ref, not state: read inside the poll
-  // interval's closure without needing to recreate that interval on change.
-  const resolvedPrsRef = useRef(new Set());
-
-  const applyStatus = (data) => {
-    const resolved = resolvedPrsRef.current;
-    const pending = data.pendingApprovals || [];
-    for (const prUrl of resolved) {
-      if (!pending.some((p) => p.prUrl === prUrl)) resolved.delete(prUrl);
-    }
-    setStatus({ ...data, pendingApprovals: pending.filter((p) => !resolved.has(p.prUrl)) });
-  };
 
   // `silent` is used for the background poll below — it updates the data
   // without flashing the loading spinner or bouncing to an error state over
@@ -77,7 +52,7 @@ export default function AutomationPanel() {
         setStatus(null);
         return;
       }
-      applyStatus(data);
+      setStatus(data);
     } catch (err) {
       if (!silent) setLoadError(err.message);
     } finally {
@@ -175,40 +150,6 @@ export default function AutomationPanel() {
     } catch {}
   };
 
-  const handleApprove = async (prUrl) => {
-    setResolvingPr(prUrl);
-    try {
-      await fetch('/api/automation/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installationId, prUrl }),
-      });
-      // The actual commit happens once GitHub delivers the webhook for the
-      // confirmation comment this just posted — not instant, so just drop
-      // it from the list (and keep it hidden across polls, see
-      // resolvedPrsRef) rather than waiting for a real outcome here.
-      resolvedPrsRef.current.add(prUrl);
-      setStatus((s) => (s ? { ...s, pendingApprovals: s.pendingApprovals.filter((p) => p.prUrl !== prUrl) } : s));
-    } finally {
-      setResolvingPr(null);
-    }
-  };
-
-  const handleDismiss = async (prUrl) => {
-    setResolvingPr(prUrl);
-    try {
-      await fetch('/api/automation/dismiss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installationId, prUrl }),
-      });
-      resolvedPrsRef.current.add(prUrl);
-      setStatus((s) => (s ? { ...s, pendingApprovals: s.pendingApprovals.filter((p) => p.prUrl !== prUrl) } : s));
-    } finally {
-      setResolvingPr(null);
-    }
-  };
-
   // Whatever's currently active on the Model page in *this* browser — null
   // if nothing's configured there. Automation can't see localStorage on its
   // own (it runs server-side, triggered by a webhook), so this has to be
@@ -280,7 +221,7 @@ export default function AutomationPanel() {
             you&rsquo;re assigned to or authored — this uses your token and your own webhook, so it works the same
             whether you deployed this instance or you&rsquo;re just a visitor using someone else&rsquo;s hosted copy.
             Nothing is shared with other users. Replies always propose first and wait for your confirmation before
-            committing anything — you can confirm on GitHub or from the Pending Approvals list here.
+            committing anything — you can confirm on GitHub or from the Pending Approvals page.
           </p>
           <div className={styles.block}>
             <div className={styles.connectForm}>
@@ -346,43 +287,16 @@ export default function AutomationPanel() {
             )}
           </div>
 
-          {status.pendingApprovals.length > 0 && (
-            <div className={styles.block}>
-              <div className="section-title blue">PENDING APPROVALS</div>
-              <p className={styles.statusNote}>
-                A fix was proposed on these PRs and is waiting for your confirmation before anything is committed.
-              </p>
-              <div className={styles.activityList}>
-                {status.pendingApprovals.map((item) => (
-                  <div className={styles.block} key={item.prUrl}>
-                    <a href={item.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
-                      {prNumberOf(item.prUrl) ? `#${prNumberOf(item.prUrl)} ` : ''}
-                      {item.prTitle || item.prUrl}
-                    </a>
-                    <pre className="review-recommendation">{item.preview}</pre>
-                    <div className={styles.connectForm}>
-                      <button
-                        type="button"
-                        className="btn btn-approve"
-                        onClick={() => handleApprove(item.prUrl)}
-                        disabled={resolvingPr === item.prUrl}
-                      >
-                        {resolvingPr === item.prUrl ? 'Working…' : 'Approve'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => handleDismiss(item.prUrl)}
-                        disabled={resolvingPr === item.prUrl}
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <div className={styles.block}>
+            <div className="section-title blue">PENDING APPROVALS</div>
+            <p className={styles.statusNote}>
+              {status.pendingApprovals.length === 0
+                ? 'Nothing waiting on you right now.'
+                : `${status.pendingApprovals.length} fix${status.pendingApprovals.length === 1 ? '' : 'es'} waiting for your confirmation.`}
+              {' '}
+              <Link href="/pending-approvals">Review &amp; approve →</Link>
+            </p>
+          </div>
 
           <div className={styles.block}>
             <div className="section-title blue">WEBHOOK URL</div>
