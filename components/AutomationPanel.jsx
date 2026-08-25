@@ -22,6 +22,7 @@ export default function AutomationPanel() {
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [resolvingPr, setResolvingPr] = useState(null);
 
   const loadStatus = async (id) => {
     setLoading(true);
@@ -113,6 +114,37 @@ export default function AutomationPanel() {
     } catch {}
   };
 
+  const handleApprove = async (prUrl) => {
+    setResolvingPr(prUrl);
+    try {
+      await fetch('/api/automation/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ installationId, prUrl }),
+      });
+      // The actual commit happens once GitHub delivers the webhook for the
+      // confirmation comment this just posted — not instant, so just drop
+      // it from the list rather than waiting for a real outcome here.
+      setStatus((s) => (s ? { ...s, pendingApprovals: s.pendingApprovals.filter((p) => p.prUrl !== prUrl) } : s));
+    } finally {
+      setResolvingPr(null);
+    }
+  };
+
+  const handleDismiss = async (prUrl) => {
+    setResolvingPr(prUrl);
+    try {
+      await fetch('/api/automation/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ installationId, prUrl }),
+      });
+      setStatus((s) => (s ? { ...s, pendingApprovals: s.pendingApprovals.filter((p) => p.prUrl !== prUrl) } : s));
+    } finally {
+      setResolvingPr(null);
+    }
+  };
+
   return (
     <main className="card">
       <div className="section-title blue">AUTOMATION</div>
@@ -133,9 +165,11 @@ export default function AutomationPanel() {
       {!loading && !status && (
         <>
           <p className={styles.statusNote}>
-            Connect your own GitHub account to automate PR comment replies on your repos — this uses your token and
-            your own webhook, so it works the same whether you deployed this instance or you&rsquo;re just a visitor
-            using someone else&rsquo;s hosted copy. Nothing is shared with other users.
+            Connect your own GitHub account to auto-review new PRs on your repos and reply to comments on PRs
+            you&rsquo;re assigned to or authored — this uses your token and your own webhook, so it works the same
+            whether you deployed this instance or you&rsquo;re just a visitor using someone else&rsquo;s hosted copy.
+            Nothing is shared with other users. Replies always propose first and wait for your confirmation before
+            committing anything — you can confirm on GitHub or from the Pending Approvals list here.
           </p>
           <div className={styles.block}>
             <div className={styles.connectForm}>
@@ -164,6 +198,43 @@ export default function AutomationPanel() {
             </div>
           </div>
 
+          {status.pendingApprovals.length > 0 && (
+            <div className={styles.block}>
+              <div className="section-title blue">PENDING APPROVALS</div>
+              <p className={styles.statusNote}>
+                A fix was proposed on these PRs and is waiting for your confirmation before anything is committed.
+              </p>
+              <div className={styles.activityList}>
+                {status.pendingApprovals.map((item) => (
+                  <div className={styles.block} key={item.prUrl}>
+                    <a href={item.prUrl} target="_blank" rel="noreferrer" className={styles.activityLink}>
+                      {item.prTitle || item.prUrl}
+                    </a>
+                    <pre className="review-recommendation">{item.preview}</pre>
+                    <div className={styles.connectForm}>
+                      <button
+                        type="button"
+                        className="btn btn-approve"
+                        onClick={() => handleApprove(item.prUrl)}
+                        disabled={resolvingPr === item.prUrl}
+                      >
+                        {resolvingPr === item.prUrl ? 'Working…' : 'Approve'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => handleDismiss(item.prUrl)}
+                        disabled={resolvingPr === item.prUrl}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className={styles.block}>
             <div className="section-title blue">WEBHOOK URL</div>
             <p className={styles.statusNote}>This URL is unique to your connected account — don&rsquo;t share it.</p>
@@ -190,7 +261,7 @@ export default function AutomationPanel() {
                   </button>
                 </div>
               </li>
-              <li>Events: <strong>Issue comments</strong>, <strong>Pull request review comments</strong>, and <strong>Pull request reviews</strong>.</li>
+              <li>Events: <strong>Issue comments</strong>, <strong>Pull request review comments</strong>, <strong>Pull request reviews</strong>, and <strong>Pull requests</strong> (for auto-review on open).</li>
             </ol>
           </div>
 
@@ -198,7 +269,8 @@ export default function AutomationPanel() {
             <div className="section-title blue">RECENT ACTIVITY</div>
             {status.recentActivity.length === 0 ? (
               <div className="empty-state">
-                No automated replies yet — once a comment lands on a PR you&rsquo;re assigned to or authored, it&rsquo;ll show up here.
+                No automated activity yet — a new PR on a watched repo gets auto-reviewed, and a comment on a PR
+                you&rsquo;re assigned to or authored gets a reply. Both show up here.
               </div>
             ) : (
               <div className={styles.activityList}>

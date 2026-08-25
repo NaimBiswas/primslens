@@ -20,11 +20,13 @@ prismlens/
 │       ├── health/route.js             # GET /api/health
 │       ├── automation/register/route.js # POST/DELETE /api/automation/register — connect/disconnect a GitHub account
 │       ├── automation/status/route.js  # GET /api/automation/status — one connected account's status
+│       ├── automation/approve/route.js # POST /api/automation/approve — confirm a pending fix
+│       ├── automation/dismiss/route.js # POST /api/automation/dismiss — clear a pending fix without approving
 │       ├── ai/models/route.js          # GET/POST /api/ai/models — provider registry + live model listing
 │       ├── review/describe/route.js    # POST /api/review/describe — auto-generated PR description
 │       ├── review/label/route.js       # POST /api/review/label — size/risk labels
 │       ├── feedback/route.js           # POST /api/feedback — 👍/👎 on a finding
-│       └── webhooks/github/[installationId]/route.js # POST — automated PR-comment responder, one URL per connected account
+│       └── webhooks/github/[installationId]/route.js # POST — PR-opened auto-review + comment-reply responder, one URL per connected account
 ├── components/
 │   ├── CodeReviewPanel.jsx  # Dashboard's "Code Review" tab
 │   ├── AutomationPanel.jsx  # Dashboard's "Automation" tab
@@ -108,7 +110,11 @@ npm run lint
 
 ## Automation
 
-PrismLens can watch your PRs and respond to new comments on its own — no need to open the app. It always **proposes**, never commits on its own: a fix preview when the comment implies a code change, a direct answer otherwise.
+PrismLens can watch your repos and act on its own — no need to open the app:
+
+- **New PR opened** → the full 6-dimension review is posted as a PR comment automatically, every time, on every PR on a watched repo.
+- **New comment on a PR you're assigned to or authored** → PrismLens replies through the same chat pipeline the interactive UI uses. It always **proposes**, never commits on its own: a fix preview when the comment implies a code change, a direct answer otherwise. The conversation is remembered per PR, so replying "commit" later actually has the earlier preview in context.
+- **Pending approvals** → every proposed-but-unconfirmed fix shows up in the Automation tab with the diff, so you can review and approve it from the dashboard instead of digging through PR comments. Approving posts a `commit` comment on the PR using your own token — the same thing typing "commit" on GitHub does — so it's one consistent path either way.
 
 Automation is per-account, not per-deployment: connect your own GitHub token from the **Automation tab**, and PrismLens generates a webhook URL and secret unique to you. This is what lets someone other than whoever deployed the app use automation on their own repos — nothing is shared between accounts.
 
@@ -117,9 +123,9 @@ Automation is per-account, not per-deployment: connect your own GitHub token fro
    - Payload URL: the webhook URL shown on the Automation tab
    - Content type: `application/json`
    - Secret: the webhook secret shown on the Automation tab
-   - Events: **Issue comments**, **Pull request review comments**, and **Pull request reviews**
+   - Events: **Issue comments**, **Pull request review comments**, **Pull request reviews**, and **Pull requests**
 
-PrismLens reacts to a comment only when the PR is assigned to, or authored by, your connected account — and it always ignores comments it posted itself, so it never replies to its own replies.
+PrismLens reacts to a comment only when the PR is assigned to, or authored by, your connected account — and it always ignores comments it posted itself (tracked by comment id, not by author, so your own manual "commit" reply is never mistaken for its own echo).
 
 Running your own deployment? Automation needs a Postgres database (`DATABASE_URL`) and an `AUTOMATION_ENCRYPTION_KEY` to store connected accounts' tokens/secrets encrypted at rest — see [Environment Variables](docs/api.md#environment-variables). Without those set, the Automation tab still loads but connecting an account fails with a clear error telling you what's missing.
 
@@ -167,10 +173,12 @@ Every finding has 👍/👎 buttons. This isn't a hosted learning system — the
 | POST | `/api/chat` | Chat (incl. doc generation) |
 | GET | `/api/health` | Server health check |
 | POST/DELETE | `/api/automation/register` | Connect/disconnect a GitHub account for automation |
-| GET | `/api/automation/status` | One connected account's status + recent activity |
+| GET | `/api/automation/status` | One connected account's status + recent activity + pending approvals |
+| POST | `/api/automation/approve` | Confirm a pending fix (posts a `commit` comment on the PR) |
+| POST | `/api/automation/dismiss` | Clear a pending fix without approving |
 | GET/POST | `/api/ai/models` | Provider registry + live model listing for a given key |
 | POST | `/api/feedback` | 👍/👎 on a finding |
-| POST | `/api/webhooks/github/[installationId]` | Automated PR-comment responder (called by GitHub, not the client) |
+| POST | `/api/webhooks/github/[installationId]` | PR-opened auto-review + comment-reply responder (called by GitHub, not the client) |
 
 Full API reference: [`docs/api.md`](docs/api.md)
 
