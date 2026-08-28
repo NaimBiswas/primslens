@@ -175,6 +175,31 @@ input::placeholder {
   color: rgba(255, 255, 255, 0.3);
 }
 
+textarea {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  resize: vertical;
+  transition: all 0.3s ease;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 20px rgba(5, 217, 232, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
 .hint {
   color: var(--text-secondary);
   font-size: 0.75rem;

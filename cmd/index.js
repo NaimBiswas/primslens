@@ -26,6 +26,7 @@ program
   .option('-t, --token <token>', 'GitHub token (or set GITHUB_TOKEN env)')
   .option('-o, --output <file>', 'Save report to file')
   .option('--json', 'Output raw JSON')
+  .option('--ticket <description>', 'Ticket description — scopes the review to whether the PR satisfies it, instead of the standard 6-dimension pass (requires an AI backend)')
   .action(async (prUrl, options) => {
     const token = options.token || process.env.GITHUB_TOKEN;
 
@@ -45,7 +46,7 @@ program
 
       const review = await analyzePR(prData, files, config, token, (stage, label) => {
         if (!options.json) console.log(`  → ${label}`);
-      });
+      }, undefined, options.ticket?.trim() || undefined);
 
       if (options.json) {
         console.log(JSON.stringify(review, null, 2));
@@ -60,7 +61,10 @@ program
       console.log(`  Author:  ${meta.prAuthor}`);
       console.log(`  Files:   ${meta.stats.filesChanged}  (+${meta.stats.additions}/-${meta.stats.deletions})`);
       console.log(`  Branch:  ${meta.branch || '?'}`);
-      console.log(`  Mode:    ${meta.analysisMode === 'ai' ? `AI (${meta.aiProvider || 'unknown provider'})` : 'regex fallback'}`);
+      const modeLabel = meta.analysisMode === 'ai'
+        ? `${meta.ticketValidated ? 'Ticket validation' : 'AI'} (${meta.aiProvider || 'unknown provider'})`
+        : 'regex fallback';
+      console.log(`  Mode:    ${modeLabel}`);
       if (meta.analysisMode === 'fallback' && meta.fallbackReason) {
         console.log(`  Reason:  ${meta.fallbackReason}`);
       }

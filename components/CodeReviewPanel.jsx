@@ -66,6 +66,7 @@ function formatElapsed(ms) {
 export default function CodeReviewPanel() {
   const [prUrl, setPrUrl] = useState('');
   const [token, setToken] = useState('');
+  const [ticketDescription, setTicketDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [progressLog, setProgressLog] = useState([]);
   const [liveFindings, setLiveFindings] = useState([]);
@@ -138,7 +139,7 @@ const handleSubmit = async (e) => {
       } else {
         setProgressLog((log) => [...log, { ...evt, t: Date.now() }]);
       }
-    });
+    }, ticketDescription);
     setResult(data);
   } catch (err) {
     setError(err.message);
@@ -281,6 +282,21 @@ const handleSubmit = async (e) => {
                 <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">github.com/settings/tokens</a>
               </small>
             </div>
+            <div className="form-group">
+              <label htmlFor="ticketDescription">Ticket Description (optional)</label>
+              <textarea
+                id="ticketDescription"
+                placeholder="Paste the ticket/story description here to validate this PR against it..."
+                value={ticketDescription}
+                onChange={(e) => setTicketDescription(e.target.value)}
+                rows={5}
+              />
+              <small className="hint">
+                When filled in, the review checks only whether the PR satisfies this ticket — missing
+                requirements, partial matches, and out-of-scope changes — instead of the standard
+                code-quality pass. Requires an AI backend connected on the Model page.
+              </small>
+            </div>
             <button type="submit" className="btn">🔍 Review PR</button>
           </form>
         )}
@@ -288,7 +304,7 @@ const handleSubmit = async (e) => {
         {loading && (
           <div className="loading">
             <div className="spinner" />
-            <p className="loading-text">ANALYZING CODE CHANGES...</p>
+            <p className="loading-text">{ticketDescription.trim() ? 'VALIDATING AGAINST TICKET...' : 'ANALYZING CODE CHANGES...'}</p>
             {progressLog.length === 0 ? (
               <small>Connecting…</small>
             ) : (
@@ -347,7 +363,7 @@ const handleSubmit = async (e) => {
               {result.meta?.analysisMode && (
                 <span className={`mode-badge mode-${result.meta.analysisMode}`}>
                   {result.meta.analysisMode === 'ai'
-                    ? `AI ANALYSIS${result.meta.aiProvider ? ` · ${result.meta.aiProvider.toUpperCase()}` : ''}`
+                    ? `${result.meta.ticketValidated ? 'TICKET VALIDATION' : 'AI ANALYSIS'}${result.meta.aiProvider ? ` · ${result.meta.aiProvider.toUpperCase()}` : ''}`
                     : 'REGEX FALLBACK'}
                 </span>
               )}

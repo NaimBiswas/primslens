@@ -31,11 +31,19 @@ Full PR review analysis — evaluates every changed file across 6 dimensions.
 |-------|------|----------|-------------|
 | `prUrl` | string | Yes | Full GitHub PR URL |
 | `token` | string | Yes | GitHub personal access token (repo scope) |
+| `ticketDescription` | string | No | Ticket/story description. When set, the review is scoped to whether the PR satisfies this ticket only — missing requirements, partial matches, out-of-scope changes — instead of the standard 6-dimension pass. Requires an AI backend to be resolvable (own key via `aiProviderId`/`aiApiKey`, or a server-configured provider); the stream ends with an `error` line otherwise. |
 
 ```bash
 curl -X POST http://localhost:3000/api/review \
   -H "Content-Type: application/json" \
   -d '{"prUrl": "https://github.com/user/repo/pull/17", "token": "ghp_xxxxxx"}'
+```
+
+```bash
+# Ticket-scoped review
+curl -X POST http://localhost:3000/api/review \
+  -H "Content-Type: application/json" \
+  -d '{"prUrl": "https://github.com/user/repo/pull/17", "token": "ghp_xxxxxx", "ticketDescription": "As a user I want...", "aiProviderId": "gemini", "aiApiKey": "..."}'
 ```
 
 ### Response
@@ -220,7 +228,7 @@ curl -X POST http://localhost:3000/api/review/merge \
 
 ## `POST /api/review/describe`
 
-Replaces the PR's description with a summary generated from the review: what changed (file-by-file, verb per file — Add/Remove/Rename/Update), and a review snapshot (per-category finding counts + verdict).
+Replaces the PR's description with a `PR Title` / `Description` / `Changes` / `Verification` write-up generated from the review: a factual, file-grouped (CI/Build/Tests/Source) changes list with no review findings or severities mixed in (those belong in the posted review comment, not the description), and a Verification section only when there's something concrete to report (test files touched, or a missing-test suggestion). When the review was scoped to a pasted ticket description (see `/api/review`'s `ticketDescription`), the `Description` section is based on that ticket text instead of being reconstructed from the diff.
 
 ### Request
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeFallback } from '../lib/services/analyzer.js';
+import { analyzeFallback, analyzePR } from '../lib/services/analyzer.js';
 
 function makePrData() {
   return {
@@ -117,4 +117,12 @@ test('does not flag missing tests for small changes', () => {
   const file = makeFile('src/tiny.js', ['+const x = 1;']);
   const result = analyzeFallback(makePrData(), [file]);
   assert.ok(!result.best_practices.some((f) => /no accompanying test file/i.test(f.issue)));
+});
+
+test('ticket-scoped review rejects outright when no AI backend is available, instead of silently falling back', async () => {
+  const file = makeFile('src/feature.js', ['+const x = 1;']);
+  await assert.rejects(
+    () => analyzePR(makePrData(), [file], null, null, undefined, { disabled: true }, 'As a user I want to log in with email.'),
+    /ticket-based review requires an ai backend/i
+  );
 });

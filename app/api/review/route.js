@@ -11,12 +11,17 @@ export const maxDuration = 300;
 
 /**
  * POST /api/review
- * Body: { prUrl: string, token: string, aiProviderId?: string, aiApiKey?: string, aiModel?: string, aiDisabled?: boolean }
+ * Body: { prUrl: string, token: string, aiProviderId?: string, aiApiKey?: string, aiModel?: string, aiDisabled?: boolean, ticketDescription?: string }
  * `aiProviderId`/`aiApiKey`/`aiModel` come from a user's own key entered in
  * the Model page's unified model picker — when present they're used instead
  * of whatever provider the server has configured via env vars. `aiDisabled`
  * is set when the user explicitly picked "no AI backend" (regex fallback
  * only), so a server-configured provider must be skipped too.
+ *
+ * `ticketDescription`, when present, scopes the review to validating the PR
+ * against that ticket only, instead of the standard 6-dimension pass — see
+ * analyzePR's doc comment in lib/services/analyzer.js. This requires an AI
+ * backend; the stream ends with an "error" line if none is available.
  *
  * Streams newline-delimited JSON so the client can show real pipeline state
  * (fetching PR, pulling codebase tree, running AI review, ...) instead of a
@@ -30,7 +35,7 @@ export const maxDuration = 300;
  * "error" line.
  */
 export async function POST(req) {
-  const { prUrl, token, aiProviderId, aiApiKey, aiModel, aiDisabled } = await req.json();
+  const { prUrl, token, aiProviderId, aiApiKey, aiModel, aiDisabled, ticketDescription } = await req.json();
 
   if (!prUrl) return NextResponse.json({ error: 'prUrl is required' }, { status: 400 });
   if (!token) return NextResponse.json({ error: 'GitHub token is required' }, { status: 400 });
@@ -54,7 +59,7 @@ export async function POST(req) {
         ]);
         onProgress('files-ready', `${files.length} file(s) changed — starting analysis…`);
 
-        const review = await analyzePR(prData, files, config, token, onProgress, aiOverride);
+        const review = await analyzePR(prData, files, config, token, onProgress, aiOverride, ticketDescription?.trim() || undefined);
         send({ type: 'result', data: review });
       } catch (err) {
         const { msg } = githubErrorResponse(err);
